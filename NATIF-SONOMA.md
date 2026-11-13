@@ -1,55 +1,41 @@
-# macOS Sonoma natif sur Xiaomi Pad 5 : état de la recherche
+# macOS Sonoma natif sur Xiaomi Pad 5 (nabu)
 
-**État au 13 novembre 2026.** Cible : démarrer macOS Sonoma directement sur la Pad 5 (nabu / SM8150), sans QEMU. Je continue la piste macOS en priorité. À ce stade, il n’existe toujours pas d’image ni de procédure de démarrage natif validée pour cette tablette.
+**État vérifié le 13 novembre 2026 : aucune installation macOS native n'a été faite.** La cible demandée reste Sonoma, aujourd'hui en version 14.8.9. macOS 27 Golden Gate est une autre version et ne résout pas les dépendances matérielles du Snapdragon 860.
 
-## Ce que le dépôt prouve aujourd’hui
+## État réel de la tablette
 
-Le journal du dépôt rapporte des démarrages de Recovery avec QEMU/TCG sur un hôte Linux x86-64. Le volume APFS formaté était un disque virtuel QEMU. Le téléchargement des composants a échoué faute de réseau dans le labo. Cela ne prouve ni une installation complète de Sonoma en VM, ni un démarrage natif sur la Pad 5.
+La tablette branchée est détectée par ADB comme Xiaomi Pad 5 `nabu` / modèle `21051182G`, Android 13, build `V816.0.6.0.TKXMIXM`. Le bootloader est verrouillé. Aucun partitionnement, déverrouillage ou flash n'a été effectué.
 
-Le port communautaire [UniXNU-nabu](https://github.com/zzweiqing/UniXNU-nabu) montre que du XNU recompilé peut démarrer sur cette carte. Son système testé est iPadOS 17.7. Ce code n’est pas une image macOS et n’est pas intégré à la procédure de ce dépôt.
+Sur les huit cœurs, les lignes `Features` de `/proc/cpuinfo` ne publient ni `paca` ni `pacg`. Ce sont les indicateurs Linux d'authentification de pointeurs. C'est une observation du noyau Android; elle seule ne permet pas de lire les registres matériels d'identification EL1 et ne prouve donc pas que le firmware ne masque rien. La microarchitecture Armv8.2 du Cortex-A76 n'inclut pas l'extension Pointer Authentication d'Armv8.3-A. Apple indique que les kexts macOS sur Apple silicon doivent prendre en charge `arm64e` avec PAC. Un noyau et des binaires `arm64e` Sonoma inchangés ne sont donc pas un chemin de démarrage validé pour nabu.
 
-## Piste Sonoma trouvée dans les sources Apple
+## Pourquoi aucun flash Sonoma n'est lancé
 
-Le tag public [XNU xnu-10002.81.5](https://github.com/apple-oss-distributions/xnu/tree/xnu-10002.81.5) correspond au noyau de macOS Sonoma 14.3 (Darwin 23.3.0). Cela fournit une base source Sonoma précise pour un futur noyau adapté.
+Un IPSW ou un installateur macOS pour Mac Apple silicon n'est pas une image universelle à écrire sur la Xiaomi. Il contient un démarrage et un noyau prévus pour les plateformes Apple. Il manque encore un chargeur de démarrage compatible, un XNU macOS adapté au SoC et à l'ADT nabu, un système de fichiers/racine amorçable, ainsi que les pilotes macOS propres à l'écran, au tactile, à l'UFS, au GPU Adreno 640 et au Wi-Fi Qualcomm. Aucun de ces éléments ne forme aujourd'hui une image Sonoma testée sur cette tablette.
 
-La présence de `config/MASTER.arm64.MacOSX` dans ce tag ne constitue toutefois pas un profil matériel prêt à l’emploi : c’est un fichier de configuration des symboles/API exportés. Le guide de compilation XNU décrit un build Apple Silicon à partir d’un KDK et d’une configuration de plateforme Mac précise; il ne décrit aucune plateforme SM8150. Il faut encore créer et compiler une configuration nabu qui lie le noyau Sonoma au démarrage UEFI, à l’ADT, au stockage et aux pilotes de la tablette.
+Le projet public [UniXNU-nabu](https://github.com/zzweiqing/UniXNU-nabu) confirme un port source-construit de XNU sur nabu avec **l'espace utilisateur iPadOS 17.7**. Il rapporte un écran et le tactile fonctionnels, mais liste le Wi-Fi comme non implémenté. Ce travail prouve des avancées réutilisables au niveau carte/XNU, pas un système macOS. Son code et ses résultats ne sont pas présentés ici comme une installation Sonoma.
 
-- [Code source XNU Sonoma 14.3](https://github.com/apple-oss-distributions/xnu/tree/xnu-10002.81.5)
-- [Guide de compilation XNU](https://github.com/apple-oss-distributions/xnu/blob/main/README.md)
-- [Périmètre du profil macOS dans UniXNU](https://unixnu.com/porting/macos)
+Le projet [Snapintosh](https://github.com/Snapintosh/Snapintosh) fait démarrer macOS 27 sur un Snapdragon X2 Elite récent avec un moniteur EL2 et des pilotes dédiés. Sa cible et sa chaîne de démarrage sont propres à cette machine; elles ne fournissent pas une image installable pour le Snapdragon 860 de nabu. Le résultat ne se transpose pas par simple changement de version.
 
-## Premier verrou matériel : arm64e et PAC
+## Sauvegarde avant toute écriture
 
-Apple documente que les extensions noyau (kexts) sur Apple Silicon doivent prendre en charge l’architecture `arm64e`, qui utilise l’authentification de pointeurs (PAC). Le Snapdragon 860 de la Pad 5 utilise un CPU Qualcomm Kryo 485. L’architecture exacte et les fonctions PAC exposées par les cœurs de cette tablette doivent être mesurées sur l’appareil; je ne les déduis pas du seul nom du SoC.
+Une copie locale de `/sdcard` a été faite dans `outputs/Pad5/sdcard`. Elle contient 9 201 fichiers (4 482 781 497 octets). Les 9 201 sommes SHA-256 du manifeste `outputs/Pad5/SHA256SUMS.txt` ont toutes été vérifiées. Le dossier de sauvegarde MIUI est aussi dans cette copie.
 
-Sous Android, depuis un clone du dépôt ouvert dans Termux, lance ce contrôle en lecture seule :
+Cette copie n'inclut pas les partitions Android (boot, vendor, firmware, userdata brut) ni les données privées d'applications que la sauvegarde MIUI ne sait pas exporter. Elle n'est donc pas un paquet de restauration complète. Le contenu personnel de cette sauvegarde reste local et n'est pas ajouté à GitHub.
 
-```sh
-sh lab/probe_nabu_pac.sh
-```
+## Prochaine étape technique
 
-Le script affiche `paca` et `pacg` pour chaque ligne CPU trouvée dans `/proc/cpuinfo`. Linux définit ces indicateurs comme la présence d’authentification de pointeurs. Colle toute la sortie ici : elle décidera si le noyau Sonoma peut viser directement le CPU ou si l’exécution des binaires `arm64e` est un obstacle à résoudre. Si une capacité n’est pas annoncée, Android peut aussi la masquer; il faudra alors recouper les registres d’identification des huit cœurs avant un démarrage.
+1. Examiner et exploiter les composants ouverts du port nabu uniquement comme références matérielles, sans réutiliser son espace utilisateur iPadOS dans ce dépôt.
+2. Établir si un noyau et un espace utilisateur macOS Sonoma peuvent être rendus compatibles avec l'absence de PAC exposée par nabu. Sans réponse positive, le démarrage de Sonoma arm64e ne peut pas être annoncé.
+3. Développer et valider séparément les chemins UEFI/ADT, stockage/racine, affichage/tactile, Wi-Fi et alimentation.
+4. Produire une image de démarrage reproductible et vérifier un démarrage de test et un retour arrière avant toute suppression d'Android.
 
-- [Apple : kexts et arm64e sur Apple Silicon](https://developer.apple.com/documentation/kernel/implementing_drivers_system_extensions_and_kexts)
-- [Linux : indicateurs HWCAP_PACA et HWCAP_PACG](https://docs.kernel.org/6.6/arch/arm64/elf_hwcaps.html)
-- [Arm : extensions Armv8.x et capacités CPU](https://developer.arm.com/-/media/Arm%20Developer%20Community/PDF/Learn%20the%20Architecture/Understanding%20the%20Armv8.x%20extensions.pdf)
+**Ne pas déverrouiller le bootloader et ne pas effacer Android pour l'instant :** il n'existe pas d'image native Sonoma à installer, et la sauvegarde disponible ne permet pas de restaurer toutes les partitions ni toutes les données privées.
 
-Même avec PAC disponible, il restera à vérifier les binaires du système Sonoma, la fermeture de démarrage APFS, l’ADT attendu par le noyau, puis à porter les pilotes nabu pour le tactile, l’affichage, l’UFS, le GPU, le réseau, l’audio et l’alimentation. Si PAC manque, le port ne peut pas simplement réutiliser les kexts arm64e d’Apple : il faudra démontrer une solution de compatibilité binaire avant de poursuivre vers un installateur.
+## Sources
 
-## Prochaine séquence de travail
-
-1. Relever les indicateurs PAC sur les cœurs nabu avec la commande ci-dessus.
-2. Obtenir les entrées de restauration Sonoma 14.3 et inventorier les architectures des éléments nécessaires au démarrage, sans publier ni redistribuer l’image Apple.
-3. Construire un noyau XNU Sonoma arm64 adapté à nabu et vérifier qu’il charge le noyau et les extensions requis.
-4. Ajouter un profil de démarrage macOS au projet, puis valider chaque étape sur la tablette avant de publier une procédure d’installation.
-5. Ne produire une procédure de flash qu’après avoir une image démarrable et une méthode de retour arrière vérifiée.
-
-Le dépôt ne doit pas présenter la VM comme une installation native. Aucune partition de la tablette n’a été modifiée pendant cette recherche.
-
-## Sources des essais existants
-
-- [Journal des essais QEMU](https://github.com/Joss943/Macos-on-xiomi-pad-5/blob/main/lab/JOURNAL.md)
-- [Script de VM](https://github.com/Joss943/Macos-on-xiomi-pad-5/blob/main/02-tablette-macos-vm.sh)
-- [Fiche Xiaomi Pad 5 / Snapdragon 860](https://www.mi.com/global/support/faq/details/KA-07774/)
-- [UniXNU-nabu, projet séparé orienté iPadOS 17.7](https://github.com/zzweiqing/UniXNU-nabu)
-- [État du port nabu dans UniXNU](https://unixnu.com/devices/nabu-zzweiqing)
+- Apple, versions macOS actuelles : <https://support.apple.com/en-us/109033>
+- Apple, support `arm64e`/PAC pour les kexts sur Apple silicon : <https://developer.apple.com/documentation/kernel/implementing_drivers_system_extensions_and_kexts>
+- Arm, extensions de l'architecture Armv8.x (PAC introduit avec Armv8.3-A) : <https://developer.arm.com/-/media/Arm%20Developer%20Community/PDF/Learn%20the%20Architecture/Understanding%20the%20Armv8.x%20extensions.pdf>
+- Sources XNU Apple, tag Sonoma 14.8 / Darwin 23.6 : <https://github.com/apple-oss-distributions/xnu/tree/xnu-10063.141.1>
+- Projet nabu XNU/iPadOS, état matériel et limites : <https://github.com/zzweiqing/UniXNU-nabu>
+- Port macOS Snapdragon X2, architecture spécifique : <https://github.com/Snapintosh/Snapintosh>

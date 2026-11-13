@@ -54,16 +54,22 @@ if ($device -ne 'nabu') {
     throw "Appareil détecté : '$device'. Cette sauvegarde n'est prévue que pour nabu / Xiaomi Pad 5."
 }
 
-# Xiaomi local backup can include app data. Require it before copying or proceeding.
-$miuiBackup = Invoke-AdbText -AdbArgs @(
-    'shell', 'sh', '-c',
-    'if [ -d /sdcard/MIUI/backup/AllBackup ] && [ "$(ls -A /sdcard/MIUI/backup/AllBackup 2>/dev/null)" ]; then echo present; else echo missing; fi'
-)
-if ($miuiBackup -ne 'present') {
+# Xiaomi local backup can include app data. Locate a populated dated archive
+# using separate adb shell arguments (avoids Windows/remote-shell quote parsing).
+$miuiParent = '/sdcard/MIUI/backup/AllBackup'
+$miuiListing = Invoke-AdbText -AdbArgs @('shell', 'ls', '-1', $miuiParent)
+$miuiCandidates = @($miuiListing -split '\r?\n' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+if ($miuiCandidates.Count -eq 0) {
     throw 'Sauvegarde MIUI locale absente ou vide. Crée-la sur la tablette, puis relance ce script.'
 }
+$miuiArchiveName = $miuiCandidates | Sort-Object -Descending | Select-Object -First 1
+$miuiArchivePath = "$miuiParent/$miuiArchiveName"
+$miuiContents = Invoke-AdbText -AdbArgs @('shell', 'ls', '-A', $miuiArchivePath)
+if ([string]::IsNullOrWhiteSpace($miuiContents)) {
+    throw "Le dernier dossier de sauvegarde MIUI est vide : $miuiArchiveName"
+}
 
-$usage = Invoke-AdbText -AdbArgs @('shell', 'du', '-sk', '/sdcard')
+$usage = Invoke-AdbText -AdbArgs @('shell', 'du', '-sk', '/storage/emulated/0')
 if ($usage -notmatch '^\s*(\d+)\s') { throw "Taille de /sdcard illisible : $usage" }
 $estimatedBytes = [int64]$Matches[1] * 1KB
 $requiredBytes = [int64]($estimatedBytes * 1.2) + 1GB
@@ -93,6 +99,7 @@ $metadata = @(
     "Android: $androidVersion"
     "Build: $build"
     "Created UTC: $([DateTime]::UtcNow.ToString('o'))"
+    "MIUI archive: $miuiArchiveName"
     'Scope: MIUI local backup and shared /sdcard storage'
     'Excluded: Android system partitions and private app data outside the MIUI backup archive'
 )
@@ -102,29 +109,45 @@ $metadata = @(
     [System.Text.UTF8Encoding]::new($false)
 )
 
-$sharedStorage = Join-Path $target 'shared-storage'
-& $adbPath -s $Serial pull /sdcard $sharedStorage
-if ($LASTEXITCODE -ne 0) { throw 'ADB pull a échoué; ne déverrouille pas le bootloader et ne supprime rien.' }
+# Map the destination to a short drive while adb and PowerShell traverse files;
+# this avoids Windows MAX_PATH failures in deep Android/WhatsApp folders.
+$usedLetters = @((Get-PSDrive -PSProvider FileSystem).Name)
+$freeLetter = @(90..68 | ForEach-Object { [string][char]$_ } | Where-Object { $usedLetters -notcontains $_ } | Select-Object -First 1)
+if ($freeLetter.Count -eq 0) { throw 'Aucune lettre de lecteur libre pour le transfert sans limite de chemin.' }
+$substDrive = $freeLetter[0] + ':'
+& subst.exe $substDrive $target | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Impossible de créer le lecteur temporaire $substDrive pour le transfert." }
 
-$miuiLocalCopy = Join-Path $sharedStorage 'MIUI\backup\AllBackup'
-if (-not (Test-Path -LiteralPath $miuiLocalCopy) -or
-    @(Get-ChildItem -LiteralPath $miuiLocalCopy -File -Recurse -ErrorAction Stop).Count -eq 0) {
-    throw 'La copie MIUI est absente ou vide après transfert; ne déverrouille pas le bootloader.'
+try {
+    $shortTarget = "$substDrive\"
+    $sharedStorage = Join-Path $shortTarget 'shared-storage'
+    & $adbPath -s $Serial pull /sdcard $sharedStorage
+    if ($LASTEXITCODE -ne 0) { throw 'ADB pull a échoué; ne déverrouille pas le bootloader et ne supprime rien.' }
+
+    $miuiLocalCopy = Join-Path $sharedStorage 'MIUI\backup\AllBackup'
+    if (-not (Test-Path -LiteralPath $miuiLocalCopy) -or
+        @(Get-ChildItem -LiteralPath $miuiLocalCopy -File -Recurse -ErrorAction Stop).Count -eq 0) {
+        throw 'La copie MIUI est absente ou vide après transfert; ne déverrouille pas le bootloader.'
+    }
+
+    $files = @(Get-ChildItem -LiteralPath $sharedStorage -File -Recurse -ErrorAction Stop)
+    $hashLines = foreach ($file in $files) {
+        $hash = Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256
+        $relativePath = $file.FullName.Substring($sharedStorage.Length).TrimStart('\')
+        "$($hash.Hash)  $relativePath"
+    }
+    [System.IO.File]::WriteAllLines(
+        (Join-Path $target 'SHA256SUMS.txt'),
+        @($hashLines),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+
+    $totalBytes = ($files | Measure-Object -Property Length -Sum).Sum
+    Write-Output "Sauvegarde copiée et indexée : $target"
+    Write-Output "Archive MIUI : $miuiArchiveName"
+    Write-Output "Fichiers : $($files.Count); octets : $totalBytes"
+    Write-Output 'Elle contient le stockage partagé et la sauvegarde MIUI. Elle ne remplace pas une sauvegarde des partitions système.'
 }
-
-$files = @(Get-ChildItem -LiteralPath $sharedStorage -File -Recurse -ErrorAction Stop)
-$hashLines = foreach ($file in $files) {
-    $hash = Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256
-    $relativePath = $file.FullName.Substring($sharedStorage.Length).TrimStart('\')
-    "$($hash.Hash)  $relativePath"
+finally {
+    & subst.exe $substDrive /d | Out-Null
 }
-[System.IO.File]::WriteAllLines(
-    (Join-Path $target 'SHA256SUMS.txt'),
-    @($hashLines),
-    [System.Text.UTF8Encoding]::new($false)
-)
-
-$totalBytes = ($files | Measure-Object -Property Length -Sum).Sum
-Write-Output "Sauvegarde copiée et indexée : $target"
-Write-Output "Fichiers : $($files.Count); octets : $totalBytes"
-Write-Output 'Elle contient le stockage partagé et la sauvegarde MIUI. Elle ne remplace pas une sauvegarde des partitions système.'

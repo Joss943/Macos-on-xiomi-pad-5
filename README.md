@@ -1,15 +1,17 @@
 # macOS sur Xiaomi Pad 5 (nabu, Snapdragon 860 / SM8150-AC)
 
-Scripts et notes d'essais (novembre 2026) pour émuler macOS Sonoma (14.6) avec QEMU/TCG. Les essais documentés atteignent Recovery; l'installation complète et l'exécution sur la Pad 5 ne sont pas vérifiées.
+Recherche prioritaire : démarrer macOS Sonoma directement sur la Pad 5. La version courante est Sonoma 14.8.9. Les seuls essais macOS déjà consignés dans ce dépôt sont des démarrages QEMU/TCG jusqu'à Recovery; **aucune image native Sonoma n'existe encore et rien n'a été flashé sur la tablette**.
+
+Le bootloader de la tablette était verrouillé lors de la dernière lecture ADB. Une copie locale du stockage partagé a été vérifiée avant toute écriture. Elle ne remplace pas une sauvegarde brute des partitions Android; ne lance pas les commandes `single`, `fastboot flashing unlock` ou un script de flash sans image native installable et procédure de retour arrière vérifiée. Le suivi et les résultats mesurés sont dans [NATIF-SONOMA.md](NATIF-SONOMA.md).
 
 ## Conclusion en 30 secondes
 
 | Objectif | Faisable ? | Comment |
 |---|---|---|
-| macOS Sonoma **natif** sur nabu | **Pas de port validé** | Aucun profil ou image Sonoma native prêt à installer n'a été trouvé pour la Pad 5. Voir [NATIF-SONOMA.md](NATIF-SONOMA.md); le présent dépôt teste macOS en VM. |
-| Linux complet sur la Pad 5 (étape obligatoire) | **Oui, excellent** | Ubuntu 26.04 LTS communautaire, noyau 7.3.3, GPU Adreno 640 accéléré, Wi-Fi, Bluetooth, son, stylet, 120 Hz, dual-boot avec Android. |
+| macOS Sonoma **natif** sur nabu | **Non démarré** | Aucun profil ou image Sonoma native prêt à installer n'a été trouvé pour la Pad 5. Voir [NATIF-SONOMA.md](NATIF-SONOMA.md); les essais QEMU ne constituent pas une installation native. |
+| Linux sur la Pad 5 (référence matérielle seulement) | **Oui** | Un port communautaire Ubuntu documente les pilotes et l'état du matériel nabu; ce n'est pas l'objectif d'installation de ce dépôt. |
 | macOS **en VM émulée** | **Recovery testée; installation inachevée** | QEMU + TCG + OpenCore. Catalina atteint Utilities et Sonoma atteint Recovery dans le labo x86-64; le téléchargement/install n'a pas été terminé et aucun test sur Pad 5 n'est consigné. |
-| macOS **ARM (Apple Silicon) en VM** | **Pas aujourd'hui** | Exige KVM + Pointer Authentication ou 16 Go de RAM. La Pad 5 : 6 Go, ARMv8.2, pas de KVM. |
+| macOS **ARM (Apple Silicon) en VM** | **Pas validé** | La Pad 5 expose 6 Go de RAM et n'expose pas `paca`/`pacg` dans Android; aucune VM Apple Silicon n'a été validée sur elle. |
 | macOS **fluide au quotidien** sur l'écran de la Pad 5 | **Oui** | Déport d'écran vers un vrai Mac ou un Mac mini loué dans le cloud. |
 
 ## Contenu du dépôt
@@ -27,7 +29,9 @@ Captures des tests (OpenCore, Catalina Recovery et Utilities, Sonoma Recovery) :
 
 ---
 
-## Procédure prévue : macOS Sonoma en VM via QEMU
+## Procédure expérimentale : macOS Sonoma en VM via QEMU
+
+Cette procédure démarre une VM et n'installe pas macOS en natif. Le script `01-pc-installer-ubuntu-nabu.sh` installe Linux; son mode `single` efface Android et ne doit pas être utilisé comme installateur Sonoma.
 
 Cette procédure décrit une tentative depuis Ubuntu sur la tablette. Les tests consignés ont seulement validé Recovery sur un hôte x86-64 de labo; l'installation complète et les timings ci-dessous ne sont pas validés sur la Pad 5.
 
@@ -151,22 +155,23 @@ Où le test s'est arrêté : l'environnement de test n'avait pas d'accès Intern
 
 Le firmware Qualcomm démarre Linux en EL1 ; l'hyperviseur Qualcomm occupe EL2. `/dev/kvm` n'existe donc pas, même avec un noyau compilé avec KVM. Le remplacement d'hyperviseur `qhypstub` n'existe que pour MSM8916/8939. Toute VM passe par TCG, 10 à 30 fois plus lent que le natif.
 
-## Pourquoi macOS Intel plutôt que macOS ARM
+## Anciennes pistes VM (elles ne réalisent pas l'objectif natif)
 
 | Voie | Projets | Pourquoi non sur la Pad 5 |
 |---|---|---|
 | macOS ARM (vmapple) sous KVM | vmapple-cli, reims-vgpu | KVM impossible ; exige aussi Pointer Authentication (ARMv8.3), le Kryo 485 est ARMv8.2. |
 | macOS ARM sous TCG | orchard, Ambrosia | 16 Go de RAM hôte, guest 10 Go, GPU Vulkan. Code de recherche. |
-| **macOS Intel + OpenCore sous TCG** | OSX-KVM | Mature, 3 à 4 Go de RAM, aucun Mac requis. **Voie retenue.** |
+| macOS Intel + OpenCore sous TCG | OSX-KVM | Les essais consignés atteignent Recovery seulement; cette VM n'est pas une installation native. |
 
-## Pourquoi ce dépôt ne fournit pas Sonoma natif
+## État du port natif Sonoma
 
 1. Les essais Sonoma décrits ici utilisent QEMU/TCG et un CPU Intel émulé; ils ne démarrent pas macOS directement sur le Snapdragon.
 2. Aucun profil ou paquet macOS Sonoma prêt pour nabu n'a été trouvé.
 3. Le projet UniXNU-nabu vise iPadOS 17.7, pas macOS; il reste hors du périmètre de ce dépôt.
-4. Le profil macOS public d'UniXNU cible macOS 27.3 arm64e et ne documente pas la Pad 5 comme cible.
+4. Le seul port XNU public pour nabu trouvé vise l'espace utilisateur iPadOS 17.7; le Wi-Fi y est encore indiqué comme non implémenté.
+5. ADB a mesuré l'absence des indicateurs PAC `paca`/`pacg` sur les huit cœurs; cela constitue un verrou arm64e à étudier, pas encore une preuve tirée des registres CPU.
 
-Voir [NATIF-SONOMA.md](NATIF-SONOMA.md) pour les sources et les travaux qui resteraient à réaliser.
+Voir [NATIF-SONOMA.md](NATIF-SONOMA.md) pour les mesures, la sauvegarde et les verrous de démarrage. macOS 27 Golden Gate est une autre cible; elle n'est pas installable sur nabu par simple remplacement de Sonoma.
 
 ## macOS fluide sur la Pad 5
 
