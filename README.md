@@ -1,14 +1,14 @@
 # macOS sur Xiaomi Pad 5 (nabu, Snapdragon 860 / SM8150-AC)
 
-Méthode complète, scripts et résultats de tests (novembre 2026) pour faire tourner macOS sur la Xiaomi Pad 5, jusqu'à l'installation complète de **macOS Sonoma (14.6)** en machine virtuelle émulée.
+Scripts et notes d'essais (novembre 2026) pour émuler macOS Sonoma (14.6) avec QEMU/TCG. Les essais documentés atteignent Recovery; l'installation complète et l'exécution sur la Pad 5 ne sont pas vérifiées.
 
 ## Conclusion en 30 secondes
 
 | Objectif | Faisable ? | Comment |
 |---|---|---|
-| macOS **natif** (remplacer Android par macOS) | **Non, impossible** | macOS n'a ni noyau, ni pilotes, ni chaîne de démarrage pour un SoC Qualcomm. Aucun projet au monde ne l'a fait. |
+| macOS Sonoma **natif** sur nabu | **Pas de port validé** | Aucun profil ou image Sonoma native prêt à installer n'a été trouvé pour la Pad 5. Voir [NATIF-SONOMA.md](NATIF-SONOMA.md); le présent dépôt teste macOS en VM. |
 | Linux complet sur la Pad 5 (étape obligatoire) | **Oui, excellent** | Ubuntu 26.04 LTS communautaire, noyau 7.3.3, GPU Adreno 640 accéléré, Wi-Fi, Bluetooth, son, stylet, 120 Hz, dual-boot avec Android. |
-| macOS **en VM émulée** sur la Pad 5 | **Oui, lent** | QEMU + TCG (émulation x86-64, pas de KVM) + OpenCore. **Testé : Catalina et Sonoma atteignent l'installeur.** |
+| macOS **en VM émulée** | **Recovery testée; installation inachevée** | QEMU + TCG + OpenCore. Catalina atteint Utilities et Sonoma atteint Recovery dans le labo x86-64; le téléchargement/install n'a pas été terminé et aucun test sur Pad 5 n'est consigné. |
 | macOS **ARM (Apple Silicon) en VM** | **Pas aujourd'hui** | Exige KVM + Pointer Authentication ou 16 Go de RAM. La Pad 5 : 6 Go, ARMv8.2, pas de KVM. |
 | macOS **fluide au quotidien** sur l'écran de la Pad 5 | **Oui** | Déport d'écran vers un vrai Mac ou un Mac mini loué dans le cloud. |
 
@@ -27,7 +27,7 @@ Captures des tests (OpenCore, Catalina Recovery et Utilities, Sonoma Recovery) :
 
 ---
 
-## Méthode complète : macOS Sonoma installé sur la Pad 5
+## Méthode de test : macOS Sonoma en VM sous Ubuntu
 
 ### Étape 0. Prérequis
 
@@ -157,12 +157,14 @@ Le firmware Qualcomm démarre Linux en EL1 ; l'hyperviseur Qualcomm occupe EL2. 
 | macOS ARM sous TCG | orchard, Ambrosia | 16 Go de RAM hôte, guest 10 Go, GPU Vulkan. Code de recherche. |
 | **macOS Intel + OpenCore sous TCG** | OSX-KVM | Mature, 3 à 4 Go de RAM, aucun Mac requis. **Voie retenue.** |
 
-## Pourquoi macOS natif est impossible
+## Pourquoi ce dépôt ne fournit pas Sonoma natif
 
-1. XNU ne supporte que les puces Apple (et les PC Intel). Aucun pilote Adreno, WCN3990, UFS, écran, tactile.
-2. macOS ARM exige iBoot et des firmwares signés Apple ; la Pad 5 démarre via XBL/ABL Qualcomm et un UEFI communautaire.
-3. Code fermé : impossible d'écrire les pilotes manquants, contrairement à Linux ou Windows on ARM.
-4. OpenCore ne fonctionne que sur PC Intel/AMD. Rien d'équivalent pour un ARM non-Apple.
+1. Les essais Sonoma décrits ici utilisent QEMU/TCG et un CPU Intel émulé; ils ne démarrent pas macOS directement sur le Snapdragon.
+2. Aucun profil ou paquet macOS Sonoma prêt pour nabu n'a été trouvé.
+3. Le projet UniXNU-nabu vise iPadOS 17.7, pas macOS; il reste hors du périmètre de ce dépôt.
+4. Le profil macOS public d'UniXNU cible macOS 27.3 arm64e et ne documente pas la Pad 5 comme cible.
+
+Voir [NATIF-SONOMA.md](NATIF-SONOMA.md) pour les sources et les travaux qui resteraient à réaliser.
 
 ## macOS fluide sur la Pad 5
 
