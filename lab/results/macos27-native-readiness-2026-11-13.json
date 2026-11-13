@@ -1,0 +1,40 @@
+{
+  "schema": "nabu-macos27-native-readiness-v1",
+  "target": "macOS 27.3 (26C5035r), native on Xiaomi Pad 5 nabu",
+  "checked_on": "2026-11-13",
+  "readiness": "not-ready",
+  "native_boot_achieved": false,
+  "tablet": {
+    "adb_connected": true,
+    "model": "21051182G",
+    "product": "nabu_global",
+    "bootloader_locked": true,
+    "flash_write_performed": false
+  },
+  "kernelcache": {
+    "sha256": "d1003b5143ffd88439b4d45b6017f587171cfe6855660bed05370a2ea5db9fe9",
+    "bytes": 124518400,
+    "static_rewrite_attempted": true,
+    "rewritten_image_produced": false,
+    "rewrite_refusal": {
+      "multiword_loads_requiring_relocation": 643,
+      "unsupported_pac_forms": 24,
+      "uncovered_executable_segments": [
+        "root:__TEXT_BOOT_EXEC",
+        "root:__TEXT_EXEC",
+        "com.apple.kernel:__KDP",
+        "com.apple.kernel:__LAST"
+      ]
+    },
+    "input_modified": false
+  },
+  "blocking_gaps": [
+    "The IPSW kernel is XNU 13432.60.57; the available UniXNU profile and local XNU patches target 12377.121.6.",
+    "No kernel adapted for nabu has been built or booted.",
+    "The measured device bootloader remains locked.",
+    "The macOS 27.3 touch ABI and QCA6390 Wi-Fi driver are not implemented for this device."
+  ],
+  "next_engineering_gate": "Obtain a buildable kernel path for the exact 27.3 target, close PAC rewrite/emulation coverage, then validate a non-installing boot path before any flash.",
+  "privacy": "ADB device serial omitted."
+}
+
