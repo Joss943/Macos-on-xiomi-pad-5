@@ -29,6 +29,7 @@ Le bootloader de la tablette était verrouillé lors de la dernière lecture ADB
 | `lab/compat/inspect_macho_arch.py` | PC | Inventaire des tranches Mach-O `arm64` et `arm64e`. |
 | `lab/compat/arm64e_pauth.py` | PC | Traduit des formes PAC/PAUTH, dont PACIASP/AUTIASP et certains LDRAA/LDRAB; cas risqués refusés. |
 | `lab/compat/scan_arm64e_pauth.py` | PC | Repère les instructions PAC connues dans les régions exécutables d'un Mach-O `arm64e`, sans modifier le fichier. |
+| `lab/compat/macho_codesign.py` | PC | Recalcule plusieurs CodeDirectories SHA-1/SHA-256, retire l'enveloppe CMS et vérifie les pages d'un Mach-O signé; ne construit pas d'image amorçable. |
 | `lab/nabu/nt36523_touch.py` | PC | Décode les rapports multitouch SPI du contrôleur Novatek NT36523; ce n'est pas encore son pilote macOS. |
 
 Captures des tests (OpenCore, Catalina Recovery et Utilities, Sonoma Recovery) : dossier `xiaomi-pad5-macos/` du dépôt `fedora-config`, branche `ccr-475fd790-4b2n9n`.
@@ -197,3 +198,4 @@ La licence macOS n'autorise son exécution que sur du matériel Apple, y compris
 - OSX-KVM : <https://github.com/kholia/OSX-KVM> ; macrecovery (OpenCorePkg) : <https://github.com/acidanthera/OpenCorePkg>
 - macOS émulé sous TCG : <https://github.com/utmapp/UTM/discussions/4349>
 - macOS ARM en VM : <https://github.com/guoPhineas/vmapple-cli>, <https://github.com/yaelliethy/orchard>, <https://github.com/steelbrain/experiment-macOS-arm64-on-linux-x86>, <https://www.qemu.org/docs/master/system/arm/vmapple.html>
+

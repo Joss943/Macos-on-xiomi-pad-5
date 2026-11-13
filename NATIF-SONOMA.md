@@ -20,6 +20,8 @@ ADB voit `wlan0` et `wlan1` sous `platform/soc/18800000.qcom,icnss`, avec le mod
 
 `lab/compat/scan_arm64e_pauth.py` suit les 362 membres du fileset noyau et parcourt les sections marquées comme code sans modifier les binaires. L'analyse du `kernelcache.mac15j` Sonoma a trouvé 887 368 mots candidats connus : 144 demandent une séquence de deux instructions et 7 sont refusés pour préserver les registres en alias. Capstone 5.0.9 décode correctement les 144 séquences en `ADD/SUB` puis `LDR`; cela reste une validation statique, pas un essai d'exécution.
 
+`lab/compat/macho_codesign.py` sait lire et reconstruire plusieurs CodeDirectories d'un Mach-O signé, enlever le CMS Apple devenu invalide et vérifier chaque hash de page après modification. Je l'ai exécuté en mémoire sur la tranche `arm64e` réelle d'`IABridgeOSInstall` dans l'installateur Sonoma : ses tables SHA-1 et SHA-256 (122 pages chacune) ont été recalculées et vérifiées, et l'enveloppe CMS retirée. Le parseur accepte aussi les offsets de blobs non alignés rencontrés dans ce binaire. Cette étape ne traduit encore aucune instruction, ne met pas à jour le cache dyld ou les manifestes de ressources et ne rend pas l'exécutable lançable par macOS.
+
 `lab/nabu/nt36523_touch.py` décode les paquets SPI NT36523 de 66 octets en dix slots tactiles, coordonnées, largeur, pression et motifs de réinitialisation. Quatre tests synthétiques passent. Ce code n'accède pas encore au contrôleur SPI et ne publie pas les contacts dans IOHID/macOS.
 
 `lab/compat/xar_extract.py` lit les archives XAR Apple, contrôle le hash du TOC comprimé et les hashes des membres, puis extrait un membre demandé sans écraser de fichier existant. `lab/compat/pbzx_extract.py` décode les blocs XZ ou bruts du flux `pbzx` de l'installateur.
@@ -88,4 +90,5 @@ Cette copie n'inclut pas les partitions Android (boot, vendor, firmware, userdat
 - Port macOS Snapdragon X2, architecture spécifique : <https://github.com/Snapintosh/Snapintosh>
 - Format XAR, dépôt et spécification communautaire du projet `mackyle/xar` : <https://github.com/mackyle/xar/wiki/xarformat>
 - Format PBZX et cadrage d'une implémentation libarchive : <https://github.com/libarchive/libarchive/issues/2849>
+
 
