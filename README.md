@@ -37,8 +37,9 @@ Le bootloader est toujours verrouillé (`ro.boot.flash.locked=1`). Aucune partit
 | `lab/results/macos27-kernelcache-pac-scan-summary.json` | Résultat du kernelcache 27.3 | Hash vérifié, comptage PAC, expansions et segments non couverts; aucun binaire Apple inclus. |
 | `lab/compat/inspect_iohid_vtable.py` | Analyse IOHID 27.3 | Mesure la vtable `IOHIDDevice`, décode ses fixups du kernelcache racine et associe les pointeurs aux symboles exacts sans modifier l'IPSW. |
 | `lab/results/macos27-iohid-vtable-report.json` | Résultat du tactile 27.3 | 334 slots fonctionnels authentifiés IA, une cellule nulle de fin, et 334 noms exacts retrouvés dans les 370 membres du kernelcache. `handleStart` est au slot 272 et `handleReport` au slot 285 (référence iPadOS 17.7 : slots 168/181). |
-| `lab/compat/scan_kernelcache_fixups.py` | Analyse PAC 27.3 | Parcourt les chaînes format 8 du kernelcache arm64e sans réécrire ses pointeurs. |
+| `lab/compat/scan_kernelcache_fixups.py` | Analyse PAC 27.3 | Parcourt les chaînes format 8 et résout les cibles niveau 0 sans réécrire le kernelcache. |
 | `lab/results/macos27-kernelcache-fixup-summary.json` | Résultat des fixups 27.3 | 898 429 pointeurs authentifiés sur 1 017 384 entrées; les clés IA et DA sont comptées par segment. |
+| `lab/results/macos27-kernelcache-fixup-resolution.json` | Résolution des fixups 27.3 | Les 1 017 384 cibles sont résolues au niveau 0 et retombent dans les segments racine; aucun pointeur n'est réécrit. |
 | `lab/nabu/nt36523_touch.py` | PC | Décode les rapports multitouch SPI du contrôleur Novatek NT36523; ce n'est pas encore son pilote macOS. |
 
 Captures des tests (OpenCore, Catalina Recovery et Utilities, Sonoma Recovery) : dossier `xiaomi-pad5-macos/` du dépôt `fedora-config`, branche `ccr-475fd790-4b2n9n`.

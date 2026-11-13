@@ -90,7 +90,34 @@ def scan_kernelcache(data: bytes) -> dict[str, object]:
     if starts_array_end > len(fixups):
         raise FixupScanError("chained segment-start array leaves payload")
 
+    # Format 8 stores a 30-bit offset from basePointers[cacheLevel]. For this
+    # kernelcache, derive level 0 from the segment VM address and its recorded
+    # cache-relative offset, then verify every segment reports the same base.
+    cache_base_candidates: set[int] = set()
+    for segment_index in range(segment_count):
+        starts_offset_in_image = struct.unpack_from("<I", fixups, starts_offset + 4 + segment_index * 4)[0]
+        if starts_offset_in_image == 0:
+            continue
+        starts_base = starts_offset + starts_offset_in_image
+        if starts_base + 22 > len(fixups):
+            raise FixupScanError("truncated chained starts-in-segment")
+        starts_size, _, pointer_format = struct.unpack_from("<IHH", fixups, starts_base)
+        if starts_size < 22 or starts_base + starts_size > len(fixups):
+            raise FixupScanError("invalid chained starts-in-segment size")
+        if pointer_format == FORMAT_64_KERNEL_CACHE:
+            segment_offset = struct.unpack_from("<Q", fixups, starts_base + 8)[0]
+            cache_base_candidates.add(root_segments[segment_index][0] - segment_offset)
+    if len(cache_base_candidates) > 1:
+        raise FixupScanError("format-8 segments disagree on the cache-level-0 base")
+    cache_base = next(iter(cache_base_candidates), None)
+
     segment_reports: list[dict[str, object]] = []
+    resolved_target_min: int | None = None
+    resolved_target_max: int | None = None
+    resolved_target_count = 0
+    targets_inside_root_segments = 0
+    targets_outside_root_segments = 0
+    unresolved_target_cache_levels: dict[str, int] = {}
     for segment_index, segment in enumerate(root_segments):
         segment_name = segment[4]
         starts_offset_in_image = struct.unpack_from("<I", fixups, starts_offset + 4 + segment_index * 4)[0]
@@ -185,6 +212,22 @@ def scan_kernelcache(data: bytes) -> dict[str, object]:
                     assert isinstance(level_counts, dict)
                     level = str(cache_level)
                     level_counts[level] = level_counts.get(level, 0) + 1
+                    if cache_level == 0 and cache_base is not None:
+                        target_address = cache_base + (raw & 0x3FFFFFFF)
+                        resolved_target_count += 1
+                        resolved_target_min = (
+                            target_address if resolved_target_min is None else min(resolved_target_min, target_address)
+                        )
+                        resolved_target_max = (
+                            target_address if resolved_target_max is None else max(resolved_target_max, target_address)
+                        )
+                        if any(vmaddr <= target_address < vmaddr + vmsize for vmaddr, vmsize, *_ in root_segments):
+                            targets_inside_root_segments += 1
+                        else:
+                            targets_outside_root_segments += 1
+                    else:
+                        level = str(cache_level)
+                        unresolved_target_cache_levels[level] = unresolved_target_cache_levels.get(level, 0) + 1
                     if chain_offset + 8 > page_size:
                         row["cross_page_pointer_cells"] += 1
                     if next_delta == 0:
@@ -227,7 +270,7 @@ def scan_kernelcache(data: bytes) -> dict[str, object]:
             key_counts[key] = key_counts.get(key, 0) + int(count)
 
     return {
-        "schema": "arm64e-kernelcache-chained-fixups-report-v1",
+        "schema": "arm64e-kernelcache-chained-fixups-report-v2",
         "kernelcache_sha256": hashlib.sha256(data).hexdigest(),
         "root_fixups_command_bytes": fixups_size,
         "pointer_format_stride_bytes": 4,
@@ -238,6 +281,13 @@ def scan_kernelcache(data: bytes) -> dict[str, object]:
         "pointer_cells": total_pointer_cells,
         "authenticated_pointer_cells": total_authenticated,
         "unauthenticated_pointer_cells": total_unauthenticated,
+        "cache_level_zero_base": f"0x{cache_base:016x}" if cache_base is not None else None,
+        "resolved_target_address_count": resolved_target_count,
+        "unresolved_target_cache_levels": unresolved_target_cache_levels,
+        "targets_inside_root_segments": targets_inside_root_segments,
+        "targets_outside_root_segments": targets_outside_root_segments,
+        "target_address_min": f"0x{resolved_target_min:016x}" if resolved_target_min is not None else None,
+        "target_address_max": f"0x{resolved_target_max:016x}" if resolved_target_max is not None else None,
         "cross_page_pointer_cells": total_cross_page,
         "multi_start_pages": total_multi_pages,
         "authentication_key_counts": key_counts,
