@@ -1,6 +1,6 @@
 # macOS 27.3 sur Xiaomi Pad 5 (nabu, Snapdragon 860 / SM8150)
 
-**Cible unique : démarrer macOS 27.3 (26C5035r) nativement sur la Pad 5.** Le noyau de l'IPSW est XNU 13432.60.57, mais le profil source UniXNU utilisé ici pointe sur XNU 12377.121.6. La Pad 5 ne dispose pas du PAC matériel mesuré requis par arm64e. Aucun noyau macOS 27.3 adapté ni flash n'a été validé. Voir [NATIF-MACOS-27.md](NATIF-MACOS-27.md) pour les mesures et les blocages.
+**Cible unique : démarrer macOS 27.3 (26C5035r) nativement sur la Pad 5.** UniXNU construit actuellement ce profil à partir de XNU 12377.121.6 et prélinke le kernelcache 27.3. Le SM8150 ne présente pas de PAC matériel. La série locale explore un kernel ARM64 avec émulation PAC; elle s'applique à XNU 12377, mais n'est pas encore compilée ou démarrée. Aucun flash n'a été effectué. Voir [NATIF-MACOS-27.md](NATIF-MACOS-27.md) pour les mesures et les blocages.
 
 Le bootloader est toujours verrouillé (`ro.boot.flash.locked=1`). Aucune partition n'a été modifiée. Les essais Sonoma via QEMU décrits dans [NATIF-SONOMA.md](NATIF-SONOMA.md) sont historiques et ne constituent pas un port natif.
 
@@ -8,7 +8,7 @@ Le bootloader est toujours verrouillé (`ro.boot.flash.locked=1`). Aucune partit
 
 | Objectif | Faisable ? | Comment |
 |---|---|---|
-| macOS 27.3 **natif** sur nabu | **Non démarré; noyau source non concordant** | L'IPSW utilise XNU 13432.60.57; le profil et les patches disponibles ciblent XNU 12377.121.6. Le PAC, les pilotes, Wi-Fi et le démarrage restent non validés. Voir [NATIF-MACOS-27.md](NATIF-MACOS-27.md). |
+| macOS 27.3 **natif** sur nabu | **Non démarré; patches expérimentaux** | Le profil public cible le kernelcache 27.3 avec XNU 12377 comme base. Le PAC logiciel, le démarrage PSCI, les pilotes tactiles et Wi-Fi restent non validés. Voir [NATIF-MACOS-27.md](NATIF-MACOS-27.md). |
 | Linux sur la Pad 5 (référence matérielle seulement) | **Oui** | Un port communautaire Ubuntu documente les pilotes et l'état du matériel nabu; ce n'est pas l'objectif d'installation de ce dépôt. |
 | macOS **en VM émulée** | **Recovery testée; installation inachevée** | QEMU + TCG + OpenCore. Catalina atteint Utilities et Sonoma atteint Recovery dans le labo x86-64; le téléchargement/install n'a pas été terminé et aucun test sur Pad 5 n'est consigné. |
 | macOS **ARM (Apple Silicon) en VM** | **Pas validé** | La Pad 5 expose 6 Go de RAM et n'expose pas `paca`/`pacg` dans Android; aucune VM Apple Silicon n'a été validée sur elle. |
@@ -44,6 +44,9 @@ Le bootloader est toujours verrouillé (`ro.boot.flash.locked=1`). Aucune partit
 | `lab/compat/patches/xnu-12377/0001-accept-authenticated-fixups-without-pac.patch` | XNU 27.3 / nabu | Le chemin XNU sans PAC stocke les VA résolues comme pointeurs ordinaires au lieu d'arrêter sur les 898 429 fixups authentifiés; il ne simule pas les instructions PAC. Le patch n'a pas encore été compilé ni démarré. |
 | `lab/compat/nabu_pauth_emu.h` | Modèle PAC ARM64 sans PAC | Décode et exécute en C les instructions PAC non-HINT, branches et chargements authentifiés pour le chemin de trappe XNU. |
 | `lab/compat/patches/xnu-12377/0002-emulate-pauth-el0-el1-without-pac.patch` | XNU 27.3 / nabu | Ajoute l'émulation PAC à EL0 et EL1, derrière `nabu-pauthemu=1`; le code XNU n'est pas compilé. |
+| `lab/compat/patches/xnu-12377/0003-nabu-sm8150-machine-and-gic.patch` | XNU 27.3 / nabu | Ajoute la config SM8150, GICv3 Group 1, le timer 19, SGI 1 et le rangement des affinités CPU; appliqué à blanc, pas compilé. |
+| `lab/compat/patches/unixnu/nabu-machine-flags.patch` | UniXNU build | Permet au build XNU de remplacer les flags de carte de référence par les flags nabu tout en conservant ses chemins d'artefacts existants. |
+| `lab/nabu/macos-27.3/arm64-machine.config` | Fragment build nabu | Sélectionne `ARM64_BOARD_CONFIG_NABU` et ARMv8.2 pour le noyau expérimental. |
 | `lab/compat/test_nabu_pauth_emu.c` | Fixture C portable | 13 scénarios et les 1 024 immédiats LDRA compilés et exécutés sur l'hôte avec Zig/Clang; ce n'est pas un test de démarrage XNU. |
 | `lab/results/macos27-pauth-emulator-fixtures.json` | Résultat fixture | Résume les cas passés et les validations qui restent à faire. |
 | `lab/compat/patches/unixnu/nabu-macos27-arm64-profile.patch` | UniXNU resolver | Permet à l'override macOS 27.3 du seul appareil nabu de sélectionner ARM64 sans changer le profil Mac général. |

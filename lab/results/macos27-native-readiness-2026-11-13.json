@@ -2,6 +2,7 @@
   "schema": "nabu-macos27-native-readiness-v1",
   "target": "macOS 27.3 (26C5035r), native on Xiaomi Pad 5 nabu",
   "checked_on": "2026-11-13",
+  "engineering_updated_on": "2026-11-14",
   "readiness": "not-ready",
   "native_boot_achieved": false,
   "tablet": {
@@ -30,14 +31,24 @@
     "input_modified": false
   },
   "blocking_gaps": [
-    "The macOS 27.3 IPSW contains XNU 13432.60.57; the available UniXNU macOS profile uses XNU 12377.121.6.",
+    "UniXNU's macOS 27.3 profile intentionally builds from XNU 12377.121.6 and prelinks the 26C5035r kernelcache; the nabu board integration is not complete.",
     "UniXNU documents macOS 27 arm64e as requiring native PAC hardware; this tablet reports no PAC fields and traps PACIA on all eight cores.",
     "A separate public nabu port boots an iPadOS 17.7.11-based XNU userland on a modified 12 GiB unit; it is not a macOS 27.3 build, and its display provider is still missing.",
     "The exact macOS 27.3 static kernelcache rewrite still refuses: 643 relocations, 24 unsupported PAC forms, and four uncovered executable segments.",
+    "The local XNU 12377 patch series now includes nabu SM8150/GICv3 setup and applies in order, but it is not compiled; PSCI secondary CPU startup is not implemented in this patch set.",
     "The tablet bootloader remains locked.",
     "Touch input and QCA6390 Wi-Fi have not been validated with the macOS 27.3 kernel ABI."
   ],
-  "next_engineering_gate": "Resolve the arm64e/native-PAC incompatibility and exact XNU 13432 source/build path, then forward-port and qualify nabu hardware drivers against macOS 27.3 before any install attempt.",
+  "next_engineering_gate": "Complete PSCI CPU startup and nabu ADT/platform wiring, build the macOS 27.3 UniXNU profile with the ARM64 PAC experiment, then qualify touch and Wi-Fi before any install attempt.",
+  "patch_validation": {
+    "xnu_base": "xnu-12377.121.6 (ac9718fb1af618d5ce8678d0dc6e8a58f252216f)",
+    "series": [
+      "0001-accept-authenticated-fixups-without-pac.patch",
+      "0002-emulate-pauth-el0-el1-without-pac.patch",
+      "0003-nabu-sm8150-machine-and-gic.patch"
+    ],
+    "result": "All three patches passed git apply --check and applied in order in a clean detached worktree; no kernel compilation or device boot was performed."
+  },
   "privacy": "ADB device serial omitted.",
   "related_nabu_port": {
     "repository": "https://github.com/Lux12138/unixnu-nabu",
@@ -48,3 +59,4 @@
     "relevance": "Useful nabu boot and driver reference, but not evidence of macOS 27.3 on this 6 GiB-class tablet."
   }
 }
+

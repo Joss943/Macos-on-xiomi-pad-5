@@ -1,0 +1,313 @@
+diff --git a/makedefs/MakeInc.def b/makedefs/MakeInc.def
+index e37762b..4ccb76e 100644
+--- a/makedefs/MakeInc.def
++++ b/makedefs/MakeInc.def
+@@ -29,7 +29,7 @@ SUPPORTED_ARM64_MACHINE_CONFIGS = NONE
+ else ifneq ($(findstring _host,$(RC_ProjectName)),)
+ SUPPORTED_ARM64_MACHINE_CONFIGS = NONE
+ else
+-SUPPORTED_ARM64_MACHINE_CONFIGS = T6000 T6020 T6030 T6031 T6041 T6050 T8101 T8103 T8112 T8122 T8132 T8142 VMAPPLE
++SUPPORTED_ARM64_MACHINE_CONFIGS = T6000 T6020 T6030 T6031 T6041 T6050 T8101 T8103 T8112 T8122 T8132 T8142 VMAPPLE NABU
+ 
+ SPTM_ENABLED_SOCS_MacOSX = t6000 t8112 t6020 t8122 t6030 t6031 t6041 t6050 t8132 t8142
+ EXCLAVES_ENABLED_SOCS_MacOSX = t8142 t6050
+@@ -93,6 +93,7 @@ MACHINE_FLAGS_ARM64_T8132 = -DARM64_BOARD_CONFIG_T8132			-mcpu=apple-m4
+ MACHINE_FLAGS_ARM64_T8142 = -DARM64_BOARD_CONFIG_T8142 			-mcpu=apple-m4+memtag+predres2
+ 
+ MACHINE_FLAGS_ARM64_VMAPPLE = -DARM64_BOARD_CONFIG_VMAPPLE              -march=armv8.5a+sme2
++MACHINE_FLAGS_ARM64_NABU = -DARM64_BOARD_CONFIG_NABU                     -march=armv8.2-a+crypto
+ 
+ 
+ #
+@@ -370,8 +371,10 @@ ifeq ($(ARCH_STRING_FOR_CURRENT_MACHINE_CONFIG),)
+ # Without embdedded device map, use a default arch string
+ export ARCH_STRING_FOR_CURRENT_MACHINE_CONFIG := $(shell echo $(CURRENT_ARCH_CONFIG) | tr A-Z a-z)
+ ifneq ($(filter arm64,$(ARCH_STRING_FOR_CURRENT_MACHINE_CONFIG)),)
++ifneq ($(CURRENT_MACHINE_CONFIG),NABU)
+ export ARCH_STRING_FOR_CURRENT_MACHINE_CONFIG := arm64e
+ endif
++endif
+ 
+ endif
+ 
+diff --git a/osfmk/arm64/proc_reg.h b/osfmk/arm64/proc_reg.h
+index f4d148b..98aac2c 100644
+--- a/osfmk/arm64/proc_reg.h
++++ b/osfmk/arm64/proc_reg.h
+@@ -243,6 +243,12 @@
+ /* D-Cache, 128KB for Acc8 PCore, 8-way. 64KB for ECore, 8-way. */
+ #define MMU_CLINE   6                      /* cache line size is 1<<MMU_CLINE (64) */
+ 
++#elif defined (NABU)
++
++/* Qualcomm Kryo cores used by Xiaomi Pad 5 expose 64-byte cache lines. */
++#define MMU_I_CLINE 6
++#define MMU_CLINE   6
++
+ #elif defined (VMAPPLE)
+ 
+ /* I-Cache. */
+diff --git a/osfmk/arm64/sleh.c b/osfmk/arm64/sleh.c
+index 6ac0966..3614b30 100644
+--- a/osfmk/arm64/sleh.c
++++ b/osfmk/arm64/sleh.c
+@@ -29,6 +29,7 @@
+ #include <arm/caches_internal.h>
+ #include <arm/cpu_data.h>
+ #include <arm/cpu_data_internal.h>
++#include <arm/machine_cpu.h>
+ #include <arm/misc_protos.h>
+ #include <arm/thread.h>
+ #include <arm/rtclock.h>
+@@ -3107,6 +3108,45 @@ sleh_irq(arm_saved_state_t *state)
+ #endif
+ 
+ 
++#if defined(NABU)
++	/*
++	 * Qualcomm TrustZone owns GIC Group 0. The tablet's non-secure timer,
++	 * IPIs and device interrupts arrive through Group 1 / IRQ.
++	 */
++	uint64_t iar = __builtin_arm_rsr64("ICC_IAR1_EL1");
++	uint32_t intid = (uint32_t)(iar & 0xFFFFFF);
++
++	if (intid >= 1020) {
++		/* No EOI for a spurious ID, but still unwind the XNU IRQ prologue. */
++		sleh_interrupt_handler_prologue(state, DBG_INTR_TYPE_OTHER);
++		goto nabu_irq_epilogue;
++	}
++
++	if (intid == NABU_VTIMER_INTID) {
++		sleh_interrupt_handler_prologue(state, DBG_INTR_TYPE_TIMER);
++		cdp->cpu_decrementer = -1;
++		ml_interrupt_masked_debug_start(rtclock_intr, DBG_INTR_TYPE_TIMER);
++		rtclock_intr(TRUE);
++		ml_interrupt_masked_debug_end();
++		__builtin_arm_wsr64("ICC_EOIR1_EL1", iar);
++	} else if (intid == NABU_IPI_SGI) {
++		sleh_interrupt_handler_prologue(state, DBG_INTR_TYPE_IPI);
++		/* Retire the SGI before draining pending cross-CPU work. */
++		__builtin_arm_wsr64("ICC_EOIR1_EL1", iar);
++		__builtin_arm_isb(ISB_SY);
++		cpu_signal_handler();
++	} else {
++		sleh_interrupt_handler_prologue(state, DBG_INTR_TYPE_OTHER);
++		if (cdp->interrupt_handler) {
++			cdp->interrupt_handler(cdp->interrupt_target,
++			    cdp->interrupt_refCon,
++			    cdp->interrupt_nub,
++			    intid);
++		}
++		__builtin_arm_wsr64("ICC_EOIR1_EL1", iar);
++	}
++	__builtin_arm_isb(ISB_SY);
++#else
+ 	sleh_interrupt_handler_prologue(state, DBG_INTR_TYPE_OTHER);
+ 
+ #if USE_APPLEARMSMP
+@@ -3118,10 +3158,12 @@ sleh_irq(arm_saved_state_t *state)
+ 	    cdp->interrupt_nub,
+ 	    cdp->interrupt_source);
+ #endif
++#endif /* NABU */
+ 
+ 	entropy_collect();
+ 
+ 
++	nabu_irq_epilogue:
+ 	sleh_interrupt_handler_epilogue();
+ #if MACH_ASSERT
+ 	if (preemption_level != sleh_get_preemption_level()) {
+diff --git a/osfmk/arm64/start.s b/osfmk/arm64/start.s
+index 6aa6fe4..2032c36 100644
+--- a/osfmk/arm64/start.s
++++ b/osfmk/arm64/start.s
+@@ -752,11 +752,11 @@ common_start:
+ 	MSR_SCTLR_EL1_X0
+ 	isb		sy
+ 
+-#if !VMAPPLE
++#if !VMAPPLE && !defined(NABU)
+ 	MOV64	x1, SCTLR_EL1_DEFAULT
+ 	cmp		x0, x1
+ 	bne		.
+-#endif /* !VMAPPLE */
++#endif /* !VMAPPLE && !NABU */
+ 
+ #if (!CONFIG_KERNEL_INTEGRITY || (CONFIG_KERNEL_INTEGRITY && !defined(KERNEL_INTEGRITY_WT)))
+ 	/* Watchtower
+diff --git a/pexpert/arm/pe_fiq.c b/pexpert/arm/pe_fiq.c
+index 3ad743f..82b7ceb 100644
+--- a/pexpert/arm/pe_fiq.c
++++ b/pexpert/arm/pe_fiq.c
+@@ -141,11 +141,21 @@ pe_init_fiq()
+ 		}
+ 	}
+ 
++#if defined(NABU)
++	/* Qualcomm TrustZone owns Group 0; route non-secure PPIs/SGIs as IRQs. */
++	gicr_write32(GICR_IGROUPR0, 0xFFFFFFFF);
++	for (unsigned int i = 0; i < 32; i += 4) {
++		gicr_write32(GICR_IPRIORITYR0 + i, 0xA0A0A0A0);
++	}
++	gicr_write32(GICR_ISENABLER0,
++	    (1U << NABU_VTIMER_INTID) | (1U << NABU_IPI_SGI));
++#else
+ 	// Configure timers and legacy FIQ to be group 0
+ 	gicr_write32(GICR_IGROUPR0, 0x81FFFFFF);
+ 
+ 	// Enable PPI 27
+ 	gicr_write32(GICR_ISENABLER0, (1 << 27));
++#endif /* NABU */
+ 
+ 	// Enable system register access
+ 	uint64_t icc_sre = __builtin_arm_rsr64("ICC_SRE_EL1");
+@@ -153,8 +163,12 @@ pe_init_fiq()
+ 	__builtin_arm_wsr64("ICC_SRE_EL1", icc_sre);
+ 	__builtin_arm_isb(ISB_SY);
+ 
++#if defined(NABU)
++	__builtin_arm_wsr64("ICC_BPR1_EL1", 0);
++#else
+ 	// Set priority masks and binary point for group 0
+ 	__builtin_arm_wsr64("ICC_BPR0_EL1", 0);
++#endif /* NABU */
+ 	__builtin_arm_wsr64("ICC_PMR_EL1", 0xFF);
+ 
+ 	// Set EOI mode of this processor
+@@ -162,12 +176,24 @@ pe_init_fiq()
+ 	icc_ctlr &= ~ICC_CTLR_EOIMODE;
+ 	__builtin_arm_wsr64("ICC_CTLR_EL1", icc_ctlr);
+ 
++#if defined(NABU)
++	/* Enable the non-secure Group 1 delivery path left by ABL. */
++	uint32_t gicd_ctlr = gicd_read32(GICD_CTLR);
++	gicd_ctlr |= GICD_CTLR_ARE_NS | GICD_CTLR_ENABLEGRP1_NS;
++	gicd_write32(GICD_CTLR, gicd_ctlr);
++	while (gicd_read32(GICD_CTLR) & GICD_CTLR_RWP) {
++		;
++	}
++	__builtin_arm_wsr64("ICC_IGRPEN1_EL1", 1);
++	__builtin_arm_isb(ISB_SY);
++#else
+ 	// Enable the forwarding of the vtimer interrupt
+ 	uint32_t gicd_ctlr = gicd_read32(GICD_CTLR);
+ 	gicd_ctlr |= GICD_CTLR_ENABLEGRP0;
+ 	gicd_write32(GICD_CTLR, gicd_ctlr);
+ 	__builtin_arm_wsr64("ICC_IGRPEN0_EL1", 1);
+ 	__builtin_arm_isb(ISB_SY);
++#endif /* NABU */
+ }
+ #else
+ void
+diff --git a/pexpert/pexpert/arm64/Makefile b/pexpert/pexpert/arm64/Makefile
+index 75938b5..aacab93 100644
+--- a/pexpert/pexpert/arm64/Makefile
++++ b/pexpert/pexpert/arm64/Makefile
+@@ -17,7 +17,8 @@ PRIVATE_DATAFILES = \
+ 	vhe_disable.h \
+ 	board_config.h \
+ 	boot.h \
+-	H17.h
++	H17.h \
++	NABU.h
+ 
+ 
+ PRIVATE_KERNELFILES = \
+@@ -33,7 +34,8 @@ PRIVATE_KERNELFILES = \
+ 	H15.h \
+ 	H16.h \
+ 	H17.h \
+-	VMAPPLE.h
++	VMAPPLE.h \
++	NABU.h
+ 
+ 
+ # Headers installed into System.framework/PrivateHeaders (userspace internal SDK only).
+diff --git a/pexpert/pexpert/arm64/NABU.h b/pexpert/pexpert/arm64/NABU.h
+new file mode 100644
+index 0000000..8753468
+--- /dev/null
++++ b/pexpert/pexpert/arm64/NABU.h
+@@ -0,0 +1,59 @@
++/*
++ * Xiaomi Pad 5 (nabu / SM8150-AC) generic ARM64 board configuration.
++ * Qualcomm's Cortex-A76/A55 based Kryo cores expose 64-byte cache lines and
++ * the platform provides a GICv3 with Group 0 reserved by TrustZone.
++ */
++
++#ifndef _PEXPERT_ARM64_NABU_H
++#define _PEXPERT_ARM64_NABU_H
++
++#define NO_MONITOR                   1
++#define NABU                         1
++#define HAS_CLUSTER                  1
++#define __ARM_AMP__                  1
++#define HAS_GIC_V3                   1
++#define ARM_ARCH_TIMER               1
++
++#define __ARM_ARCH__                 8
++#define __ARM_VMSA__                 8
++#define __ARM_VFP__                  4
++#define __ARM_COHERENT_CACHE__       1
++#define __ARM_DEBUG__                7
++#define __ARM_ENABLE_SWAP__          1
++#define __ARM_V8_CRYPTO_EXTENSIONS__ 1
++#define __ARM_PAN_AVAILABLE__        1
++#define __ARM_16K_PG__               1
++
++/* Linux reports the architected virtual timer as PDC-GIC INTID 19 on nabu. */
++#define NABU_VTIMER_INTID            19
++#define NABU_IPI_SGI                 1
++
++#define GIC_SPURIOUS_IRQ             1023
++#define GICR_PE_SIZE                 0x20000
++
++#define GICD_CTLR                    0x0
++#define GICD_CTLR_ENABLEGRP1_NS      0x2
++#define GICD_CTLR_ARE_NS             0x10
++#define GICD_CTLR_RWP                0x80000000
++
++#define GICR_TYPER                   0x08
++#define GICR_WAKER                   0x14
++#define GICR_IGROUPR0                0x10080
++#define GICR_ISENABLER0              0x10100
++#define GICR_IPRIORITYR0             0x10400
++#define GICR_TYPER_AFFINITY_VALUE_SHIFT 32
++#define GICR_TYPER_LAST              0x10
++#define GICR_WAKER_PROCESSORSLEEP    0x2
++#define GICR_WAKER_CHILDRENASLEEP    0x4
++
++#define ICC_CTLR_EOIMODE             0x2
++#define ICC_SRE_SRE                  0x1
++
++/* SM8150 reports MPIDR Aff1 values 0..7 for the eight Kryo 485 CPUs. */
++#define NABU_MAX_PHYSICAL_CLUSTER_ID 7
++
++#ifndef ASSEMBLER
++#define PLATFORM_PANIC_LOG_DISABLED
++#endif
++
++#endif /* _PEXPERT_ARM64_NABU_H */
+diff --git a/pexpert/pexpert/arm64/board_config.h b/pexpert/pexpert/arm64/board_config.h
+index 5a6cd33..99ec721 100644
+--- a/pexpert/pexpert/arm64/board_config.h
++++ b/pexpert/pexpert/arm64/board_config.h
+@@ -318,6 +318,17 @@
+ 
+ #endif  /* ARM64_BOARD_CONFIG_VMAPPLE */
+ 
++#ifdef ARM64_BOARD_CONFIG_NABU
++#include <pexpert/arm64/NABU.h>
++
++#define MAX_L2_CLINE                   7
++#define MAX_CPUS                       8
++/* Aff1 is 0..7 on the eight nabu CPUs, so allocate every physical cluster slot. */
++#define MAX_CPU_CLUSTERS               8
++#define MAX_CPU_CLUSTER_PHY_ID         NABU_MAX_PHYSICAL_CLUSTER_ID
++#define NO_XNU_PLATFORM_ERROR_HANDLER  1
++#endif  /* ARM64_BOARD_CONFIG_NABU */
++
+ 
+ 
+ #ifndef HAS_UNCORE_CTRS

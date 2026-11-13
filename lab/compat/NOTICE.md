@@ -12,6 +12,11 @@ own fail-closed error handling.
 patches for Apple's XNU 12377.121.6. XNU is licensed under Apple Public Source
 License 2.0; the patches contain no Apple source file.
 
+`patches/xnu-12377/0003-nabu-sm8150-machine-and-gic.patch` is an independently
+written source patch for Apple's XNU 12377.121.6; it contains no Apple source
+file. `patches/unixnu/nabu-machine-flags.patch` is a build-script patch for the
+public UniXNU tree and contains no copied third-party implementation.
+
 `nabu_pauth_emu.h` is original no-PAC compatibility code for the ARM64
 instruction encodings listed in its decoder. It treats authentication as a
 no-op over plain pointers and does not implement PAC security.
@@ -40,5 +45,4 @@ holder or contributor are granted. The software is provided "AS IS", without
 express or implied warranties, including merchantability or fitness for a
 particular purpose. In no event shall the copyright holder be liable for any
 direct, indirect, incidental, special, exemplary or consequential damages.
-
 
