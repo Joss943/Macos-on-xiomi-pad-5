@@ -215,25 +215,29 @@ index 0554aa8..6ac0966 100644
  
  #include <machine/atomic.h>
  #include <machine/limits.h>
-@@ -1177,6 +1179,96 @@ sleh_synchronous(arm_context_t *context, uint64_t esr, vm_offset_t far, __unused
+@@ -1177,6 +1179,100 @@ sleh_synchronous(arm_context_t *context, uint64_t esr, vm_offset_t far, __unused
  	}
  }
  
 +#if !HAS_APPLE_PAC
 +/*
-+ * Optional no-PAC compatibility mode. This handles the non-HINT PAuth
-+ * instructions found in arm64e kernel collections and processes. It does not
-+ * reproduce PAC security: authenticated fixups must already contain plain VAs.
++ * The nabu no-PAC board enables this compatibility path by default. It handles
++ * non-HINT PAuth instructions but does not reproduce PAC security: authenticated
++ * fixups must already contain plain VAs.
 + */
 +static bool
 +nabu_pauthemu_enabled(void)
 +{
++#if defined(NABU)
++	return true;
++#else
 +	static int state = -1;
 +	if (state < 0) {
 +		uint32_t value = 0;
 +		state = PE_parse_boot_argn("nabu-pauthemu", &value, sizeof(value)) && value != 0;
 +	}
 +	return state > 0;
++#endif
 +}
 +
 +static int
@@ -326,4 +330,3 @@ index 0554aa8..6ac0966 100644
  	if (PSR64_IS_KERNEL(get_saved_state_cpsr(state))) {
  		if (IS_ARM_GDB_TRAP(instr)) {
  			boolean_t interrupt_state;
-

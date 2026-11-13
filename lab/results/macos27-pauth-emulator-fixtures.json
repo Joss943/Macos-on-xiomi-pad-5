@@ -23,8 +23,7 @@
   "bootable_image_produced": false,
   "notes": [
     "The emulator treats authentication as a no-op over plain virtual addresses; it does not provide PAC security.",
-    "The XNU patch is opt-in with nabu-pauthemu=1 and is compiled only when HAS_APPLE_PAC is false.",
+    "The XNU patch is enabled by default for the NABU board and is compiled only when HAS_APPLE_PAC is false.",
     "The 13 host fixtures and all 1,024 signed LDRA immediate encodings validate model semantics, not macOS boot, dyld policy, drivers, or hardware behavior."
   ]
 }
-

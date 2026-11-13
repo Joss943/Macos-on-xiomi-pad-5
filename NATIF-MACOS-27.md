@@ -42,7 +42,7 @@ Reproduire la lecture depuis un PC équipé d'ADB :
 
 ## Émulation PAC : piste vérifiée sur la version XNU ciblée
 
-Le profil de travail épingle XNU `12377.121.6` (`ac9718fb1af618d5ce8678d0dc6e8a58f252216f`), la base publiée par UniXNU pour macOS 27.3. Le patch [`0002-emulate-pauth-el0-el1-without-pac.patch`](lab/compat/patches/xnu-12377/0002-emulate-pauth-el0-el1-without-pac.patch) ajoute un émulateur des instructions PAC non-HINT au chemin d'instruction illégale de cette base XNU. Il est activé par `nabu-pauthemu=1` et traite EL0 et EL1, dont les chargements `LDRAA/LDRAB` qui bloquaient une réécriture de largeur fixe. Le modèle conserve des pointeurs VA non signés et n'offre aucune protection PAC.
+Le profil de travail épingle XNU `12377.121.6` (`ac9718fb1af618d5ce8678d0dc6e8a58f252216f`), la base publiée par UniXNU pour macOS 27.3. Le patch [`0002-emulate-pauth-el0-el1-without-pac.patch`](lab/compat/patches/xnu-12377/0002-emulate-pauth-el0-el1-without-pac.patch) ajoute un émulateur des instructions PAC non-HINT au chemin d'instruction illégale de cette base XNU. Il s'active automatiquement sous `NABU` et traite EL0 et EL1, dont les chargements `LDRAA/LDRAB` qui bloquaient une réécriture de largeur fixe. Le modèle conserve des pointeurs VA non signés et n'offre aucune protection PAC.
 
 L'émulateur est encore expérimental : seul le modèle C portable a été compilé sur l'hôte. Le patch XNU, son chemin EL0/EL1 et son intégration au profil macOS 27.3 ne sont pas compilés ni validés par un démarrage.
 
