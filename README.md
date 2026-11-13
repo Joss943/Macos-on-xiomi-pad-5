@@ -27,7 +27,9 @@ Captures des tests (OpenCore, Catalina Recovery et Utilities, Sonoma Recovery) :
 
 ---
 
-## Méthode de test : macOS Sonoma en VM sous Ubuntu
+## Procédure prévue : macOS Sonoma en VM via QEMU
+
+Cette procédure décrit une tentative depuis Ubuntu sur la tablette. Les tests consignés ont seulement validé Recovery sur un hôte x86-64 de labo; l'installation complète et les timings ci-dessous ne sont pas validés sur la Pad 5.
 
 ### Étape 0. Prérequis
 
@@ -79,7 +81,7 @@ Le script : installe `qemu-system-x86`, `dmg2img`, `zram-tools` (zram à 50 %) ;
 1. Menu OpenCore : flèche droite jusqu'à **macOS Base System**, Entrée.
 2. Pomme et barre de progression. En émulation sur la Pad 5 : 15 à 40 minutes jusqu'à l'écran **Recovery** (Restore from Time Machine / Reinstall macOS Sonoma / Safari / Disk Utility).
 
-Mesuré en émulation pure sur un hôte x86 4 cœurs sans KVM : noyau Darwin 23.6.0 lancé à 1 min, espace utilisateur à 4 min, écran Recovery complet à 16 min. Sur la Pad 5 l'hôte est ARM (traduction x86 vers ARM64 en plus), compter 2 à 3 fois plus.
+Mesuré en émulation pure sur un hôte x86 4 cœurs sans KVM : noyau Darwin 23.6.0 lancé à 1 min, espace utilisateur à 4 min, écran Recovery complet à 16 min. Pour la Pad 5 ARM, le dépôt estime 2 à 3 fois plus longtemps; ce facteur n'a pas été mesuré sur la tablette.
 
 ### Étape 4. Formater le disque virtuel en APFS
 
@@ -100,7 +102,7 @@ exit
 1. Dans la fenêtre Recovery : **Reinstall macOS Sonoma**, Continue, Agree, Agree.
 2. Choisir le volume **macOS**, Install.
 3. Téléchargement d'environ 12 Go depuis Apple (`swcdn.apple.com`, `swscan.apple.com`), puis copie sur le disque. La VM redémarre plusieurs fois. À chaque redémarrage, OpenCore propose **macOS Installer** puis, à la fin, **macOS** : laisser le choix par défaut ou sélectionner avec les flèches.
-4. Durée en émulation sur la Pad 5 : prévoir **4 à 8 heures**, tablette branchée, écran laissé allumé ou `HEADLESS=1` (voir ci-dessous).
+4. Estimation non vérifiée sur la Pad 5 : **4 à 8 heures** en émulation, tablette branchée, écran laissé allumé ou `HEADLESS=1` (voir ci-dessous).
 
 ### Étape 6. Après l'installation
 
