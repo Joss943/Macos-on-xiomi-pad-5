@@ -1,6 +1,6 @@
 # macOS Sonoma natif sur Xiaomi Pad 5 : état de la recherche
 
-**État au 13 novembre 2026.** Objectif : démarrer macOS Sonoma 14.6 directement sur la Pad 5 (nabu), sans QEMU.
+**État au 13 novembre 2026.** Objectif : démarrer macOS Sonoma 14.6 directement sur la Pad 5 (nabu), sans QEMU. Je n’ai pas réalisé cette installation; ce document rapporte les preuves disponibles et les vérifications manquantes.
 
 ## Ce que les essais de ce dépôt prouvent
 
