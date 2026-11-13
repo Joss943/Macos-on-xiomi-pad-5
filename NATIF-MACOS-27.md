@@ -35,7 +35,7 @@ Reproduire la lecture depuis un PC équipé d'ADB :
 ## État d'avancement et blocages
 
 * **Aucun port macOS 27.3 nabu prêt à construire ou à installer n'est actuellement présent dans ce dépôt.** L'IPSW exact est déjà présent dans le labo local, mais il n'existe pas ici de build reproductible du noyau 13432 avec les adaptations nabu.
-* Le dépôt public nabu référencé ici cible iPadOS 17.7 (21H16), pas macOS 27.3. Son tactile est lié à l'ABI IOHID 21H16 et son journal de portage laisse le Wi-Fi non implémenté. Ni ce pilote ni son noyau ne prouvent le fonctionnement sous macOS 27.3.
+* Le dépôt historique [UniXNU-nabu de zzweiqing](https://github.com/zzweiqing/UniXNU-nabu) cible iPadOS 17.7 (21H16), pas macOS 27.3. Un port plus récent, [Lux12138/unixnu-nabu](https://github.com/Lux12138/unixnu-nabu), configure iPadOS 17.7.11 (21H461) et rapporte un démarrage XNU jusqu'à SpringBoard; son affichage attend encore un provider `IOMobileFramebuffer`. Le mainteneur précise que ses mesures viennent d'une Pad 5 modifiée à 12 Gio, alors que la tablette reliée ici expose 5 633 852 kio. Ce travail fournit des références de démarrage nabu, mais ne prouve ni macOS 27.3, ni le tactile et le Wi-Fi sous ce noyau.
 * Le profil macOS fourni sélectionne un noyau source 12377 alors que l'IPSW demandé embarque XNU 13432.60.57. Le correctif d'architecture ARM64 ajouté pour nabu ne résout pas cet écart de noyau ni l'ABI des pilotes.
 * Le bootloader de cette tablette est encore verrouillé. Aucun binaire de démarrage macOS 27.3 pour nabu n'a été produit ni validé ; il n'y a donc rien de sûr à flasher à ce stade.
 * Le dépôt contient un abaisseur expérimental de quelques instructions arm64e vers ARM64, mais il ne couvre pas toute l'ABI arm64e, ne relocalise pas les branches, ne reconstruit pas les caches dynamiques et ne rend pas un système démarrable. Il ne suffit pas à contourner le prérequis PAC de macOS 27.3.
@@ -64,9 +64,15 @@ Le pilote tactile de référence est lié à `IOHIDFamily` du build 21H16 et à 
 
 L'outil [`lab/compat/inspect_iohid_vtable.py`](lab/compat/inspect_iohid_vtable.py) décode les chaînes de pointeurs du kernelcache sans le modifier. Son test synthétique couvre les pointeurs format 8 authentifiés. Le résultat [`lab/results/macos27-iohid-vtable-report.json`](lab/results/macos27-iohid-vtable-report.json) ne contient que des adresses, des noms de symboles et des métadonnées de fixup; aucun code Apple n'est copié.
 
+## Port nabu existant : référence, pas solution macOS 27.3
+
+Le port public [Lux12138/unixnu-nabu](https://github.com/Lux12138/unixnu-nabu) est configuré sur iPadOS 17.7.11 (`21H461`, `iPad7,1`). Son état daté du 28 octobre 2026 indique que XNU atteint SpringBoard et les services utilisateur; il reste un provider d'affichage à attacher. Le port utilise une Pad 5 modifiée à 12 Gio. La tablette mesurée dans ce dépôt expose `MemTotal = 5 633 852 kio`; ses réglages mémoire ne peuvent donc pas être repris tels quels. Cette avancée confirme qu'une chaîne UEFI/XNU nabu est possible sur cette famille, mais elle ne constitue pas un démarrage de macOS 27.3.
+
+UniXNU précise par ailleurs que les profils macOS 27 sont arm64e et nécessitent du PAC natif ([prérequis arm64e](https://unixnu.com/porting/arm64e)). Les mesures de cette Pad 5 montrent l'absence de PAC sur huit cœurs. Les patches de ce dépôt explorent une émulation, sans build ni démarrage; le port iPadOS 17.7.11 ne ferme pas cet écart.
+
 ## Travail restant vers le démarrage natif
 
-1. Confirmer le support PAC avec les registres architecturaux et les tests EL1/EL0 de UniXNU sur les huit cœurs. Si le processeur ne possède pas PAC, il faut d'abord concevoir et valider une voie de compatibilité arm64e complète ; des pilotes Wi-Fi/tactile ne peuvent pas résoudre ce verrou CPU.
+1. UniXNU indique que macOS 27 arm64e exige du PAC matériel. Les lectures de cette Pad 5 excluent le chemin pris en charge par défaut. La piste d'émulation logicielle présente dans ce dépôt reste expérimentale et ne prouve pas qu'un système macOS 27.3 arm64e puisse démarrer sans PAC.
 2. Adapter le noyau et les pilotes nabu à la collection de noyau macOS 27.3, puis construire le payload et les volumes depuis un Mac/Xcode avec l'IPSW fourni par le propriétaire.
 3. Qualifier un démarrage sans écriture, puis seulement installer après création d'une image et d'un retour arrière vérifiés. L'installation ne doit pas commencer par un flash à l'aveugle.
 
