@@ -1,0 +1,531 @@
+diff --git a/iokit/Kernel/arm/NabuCPU.cpp b/iokit/Kernel/arm/NabuCPU.cpp
+new file mode 100644
+index 0000000..4ffe21f
+--- /dev/null
++++ b/iokit/Kernel/arm/NabuCPU.cpp
+@@ -0,0 +1,251 @@
++/*
++ * PSCI CPU startup and GICv3 SGI transport for Xiaomi Pad 5 (nabu).
++ * CPU power-off, suspend and platform idle policy are not implemented yet.
++ */
++#include <pexpert/arm64/board_config.h>
++
++#if defined(NABU)
++#include <IOKit/IOCPU.h>
++#include <IOKit/IOLib.h>
++#include <libkern/c++/OSNumber.h>
++#include <kern/clock.h>
++#include <kern/processor.h>
++#include <kern/thread.h>
++#include <mach/mach_time.h>
++#include <pexpert/pexpert.h>
++
++extern "C" void nabu_secondary_entry(void);
++extern "C" boolean_t nabu_cpu_signal_is_enabled(unsigned int cpu);
++
++class NabuCPU : public IOCPU {
++	OSDeclareDefaultStructors(NabuCPU);
++	const OSSymbol *cpuName = NULL;
++	uint32_t initialized = 0;
++
++public:
++	static void startAll(void *arg, wait_result_t result);
++	bool start(IOService *provider) APPLE_KEXT_OVERRIDE;
++	void free(void) APPLE_KEXT_OVERRIDE;
++	void initCPU(bool boot) APPLE_KEXT_OVERRIDE;
++	void quiesceCPU(void) APPLE_KEXT_OVERRIDE;
++	kern_return_t startCPU(vm_offset_t start_paddr, vm_offset_t arg_paddr) APPLE_KEXT_OVERRIDE;
++	void haltCPU(void) APPLE_KEXT_OVERRIDE;
++	void signalCPU(IOCPU *target) APPLE_KEXT_OVERRIDE;
++	const OSSymbol *getCPUName(void) APPLE_KEXT_OVERRIDE;
++};
++
++OSDefineMetaClassAndStructors(NabuCPU, IOCPU);
++
++static NabuCPU *nabu_cpus[MAX_CPUS];
++static uint32_t nabu_cpus_registered;
++
++/* PSCI 0.2+ CPU_ON64, exposed by the SM8150 firmware through SMC. */
++static int32_t
++nabu_psci_cpu_on(uint64_t target, uint64_t entry, uint64_t context)
++{
++	register uint64_t x0 __asm__("x0") = 0xC4000003ULL;
++	register uint64_t x1 __asm__("x1") = target;
++	register uint64_t x2 __asm__("x2") = entry;
++	register uint64_t x3 __asm__("x3") = context;
++	__asm__ volatile("smc #0" : "+r"(x0), "+r"(x1), "+r"(x2), "+r"(x3) : :
++	    "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13",
++	    "x14", "x15", "x16", "x17", "cc", "memory");
++	return (int32_t)x0;
++}
++
++bool
++NabuCPU::start(IOService *provider)
++{
++	const ml_topology_info_t *topology = ml_get_topology_info();
++	OSNumber *logical = OSDynamicCast(OSNumber, provider->getProperty("logical-cpu-id"));
++	if (logical == NULL || logical->unsigned32BitValue() >= topology->num_cpus) {
++		return false;
++	}
++	const ml_topology_cpu_t *cpu = &topology->cpus[logical->unsigned32BitValue()];
++	if ((cpu->phys_id & 0xff) != 0 || cpu->phys_id > 0x700) {
++		IOLog("NABU CPU: ignoring unsupported MPIDR 0x%x\n", cpu->phys_id);
++		return false;
++	}
++	if (!IOCPU::start(provider)) {
++		return false;
++	}
++	cpuName = OSSymbol::withCStringNoCopy("Kryo 485");
++	if (cpuName == NULL) {
++		return false;
++	}
++	setCPUNumber(cpu->cpu_id);
++
++	ml_processor_info_t info = {};
++	info.cpu_id = reinterpret_cast<cpu_id_t>(this);
++	info.phys_id = cpu->phys_id;
++	info.log_id = cpu->cpu_id;
++	info.cluster_id = cpu->cluster_id;
++	info.cluster_type = cpu->cluster_type;
++	info.l2_cache_id = cpu->l2_cache_id;
++	info.l2_cache_size = cpu->l2_cache_size;
++	info.l3_cache_id = cpu->l3_cache_id;
++	info.l3_cache_size = cpu->l3_cache_size;
++	perfmon_interrupt_handler_func pmi_handler = NULL;
++	kern_return_t result = ml_processor_register(&info, &machProcessor, &ipi_handler, &pmi_handler);
++	if (result != KERN_SUCCESS) {
++		panic("NABU CPU: ml_processor_register cpu=%u failed: %d", cpu->cpu_id, result);
++	}
++	if (pmi_handler != NULL) {
++		IOLog("NABU CPU: cpu=%u PMI routing unavailable; performance interrupts disabled\n",
++		    cpu->cpu_id);
++	}
++
++	registerService();
++	__atomic_store_n(&nabu_cpus[cpu->cpu_id], this, __ATOMIC_RELEASE);
++	uint32_t registered = __atomic_add_fetch(&nabu_cpus_registered, 1, __ATOMIC_ACQ_REL);
++	if (registered > topology->num_cpus) {
++		panic("NABU CPU: duplicate CPU nub registration");
++	}
++	if (cpu == topology->boot_cpu) {
++		thread_t thread;
++		result = kernel_thread_start(&NabuCPU::startAll, NULL, &thread);
++		if (result != KERN_SUCCESS) {
++			panic("NABU CPU: cannot create startup thread: %d", result);
++		}
++		thread_deallocate(thread);
++	}
++	return true;
++}
++
++void
++NabuCPU::startAll(void *arg __unused, wait_result_t result __unused)
++{
++	const ml_topology_info_t *topology = ml_get_topology_info();
++	uint32_t requested = topology->num_cpus;
++	PE_parse_boot_argn("cpus", &requested, sizeof(requested));
++	IOLog("NABU CPU: requested=%u selected=%u\n", requested, topology->num_cpus);
++
++	uint64_t deadline;
++	nanoseconds_to_deadline(10 * NSEC_PER_SEC, &deadline);
++	while (__atomic_load_n(&nabu_cpus_registered, __ATOMIC_ACQUIRE) != topology->num_cpus) {
++		if (mach_absolute_time() > deadline) {
++			panic("NABU CPU: device-tree CPU nub registration timed out (%u/%u)",
++			    __atomic_load_n(&nabu_cpus_registered, __ATOMIC_ACQUIRE), topology->num_cpus);
++		}
++		IOSleep(1);
++	}
++	if (topology->boot_cpu == NULL) {
++		panic("NABU CPU: device tree did not identify the boot CPU");
++	}
++	ml_set_max_cpus(topology->max_cpu_id + 1);
++
++	for (unsigned int phase = 0; phase < topology->num_cpus; phase++) {
++		unsigned int boot_id = topology->boot_cpu->cpu_id;
++		unsigned int cpu_id = phase == 0 ? boot_id :
++		    (phase <= boot_id ? phase - 1 : phase);
++		NabuCPU *cpu = __atomic_load_n(&nabu_cpus[cpu_id], __ATOMIC_ACQUIRE);
++		if (cpu == NULL) {
++			panic("NABU CPU: missing nub for logical CPU %u", cpu_id);
++		}
++		kern_return_t kr = processor_start(cpu->machProcessor);
++		if (kr != KERN_SUCCESS) {
++			panic("NABU CPU: processor_start cpu=%u failed: %d", cpu_id, kr);
++		}
++		nanoseconds_to_deadline(5 * NSEC_PER_SEC, &deadline);
++		while (__atomic_load_n(&cpu->initialized, __ATOMIC_ACQUIRE) == 0 ||
++		    !nabu_cpu_signal_is_enabled(cpu_id)) {
++			if (mach_absolute_time() > deadline) {
++				panic("NABU CPU: cpu=%u MPIDR=0x%x failed PSCI/reset/GIC/SGI startup",
++				    cpu_id, topology->cpus[cpu_id].phys_id);
++			}
++			IOSleep(1);
++		}
++		IOLog("NABU CPU: cpu=%u MPIDR=0x%x online; SGI1 OK\n",
++		    cpu_id, topology->cpus[cpu_id].phys_id);
++	}
++
++	ml_cpu_init_completed();
++	__atomic_load_n(&nabu_cpus[topology->boot_cpu->cpu_id], __ATOMIC_ACQUIRE)->cpusRunning();
++	IOService::publishResource(gIOAllCPUInitializedKey, kOSBooleanTrue);
++	IOLog("NABU CPU: %u/%u processors initialized\n", topology->num_cpus, topology->num_cpus);
++	thread_terminate(current_thread());
++}
++
++void
++NabuCPU::free(void)
++{
++	OSSafeReleaseNULL(cpuName);
++	IOCPU::free();
++}
++
++void
++NabuCPU::initCPU(bool boot)
++{
++	if (!boot) {
++		panic("NABU CPU: CPU resume is not implemented");
++	}
++	assert(cpu_number() == (int)getCPUNumber());
++	ml_broadcast_cpu_event(CPU_BOOTED, getCPUNumber());
++	signalCPU(this);
++	setCPUState(kIOCPUStateRunning);
++	__atomic_store_n(&initialized, 1, __ATOMIC_RELEASE);
++}
++
++void
++NabuCPU::signalCPU(IOCPU *target)
++{
++	if (target == NULL) {
++		panic("NABU CPU: null SGI target");
++	}
++	const ml_topology_info_t *topology = ml_get_topology_info();
++	unsigned int logical = target->getCPUNumber();
++	if (logical >= topology->num_cpus) {
++		panic("NABU CPU: invalid SGI target %u", logical);
++	}
++	uint64_t mpidr = topology->cpus[logical].phys_id;
++	unsigned int aff0 = (unsigned int)(mpidr & 0xff);
++	if (aff0 >= 16) {
++		panic("NABU CPU: SGI target requires unsupported range selector");
++	}
++	uint64_t sgi = (((mpidr >> 32) & 0xff) << 48) |
++	    (((mpidr >> 16) & 0xff) << 32) |
++	    (((mpidr >> 8) & 0xff) << 16) |
++	    ((uint64_t)NABU_IPI_SGI << 24) | (1ULL << aff0);
++	__builtin_arm_dsb(DSB_ISHST);
++	__builtin_arm_wsr64("ICC_SGI1R_EL1", sgi);
++	__builtin_arm_isb(ISB_SY);
++}
++
++kern_return_t
++NabuCPU::startCPU(vm_offset_t start_paddr, vm_offset_t arg_paddr)
++{
++	const ml_topology_info_t *topology = ml_get_topology_info();
++	const ml_topology_cpu_t *cpu = &topology->cpus[getCPUNumber()];
++	if (start_paddr != 0 || arg_paddr != 0 || cpu == topology->boot_cpu ||
++	    __atomic_load_n(&initialized, __ATOMIC_ACQUIRE) != 0) {
++		panic("NABU CPU: unsupported restart of cpu=%u", getCPUNumber());
++	}
++	vm_offset_t entry = ml_static_vtop((vm_offset_t)&nabu_secondary_entry);
++	IOLog("NABU CPU: PSCI CPU_ON cpu=%u MPIDR=0x%x entry=0x%llx\n",
++	    getCPUNumber(), cpu->phys_id, (uint64_t)entry);
++	__builtin_arm_dsb(DSB_SY);
++	int32_t rc = nabu_psci_cpu_on(cpu->phys_id, entry, getCPUNumber());
++	if (rc != 0) {
++		panic("NABU CPU: PSCI CPU_ON cpu=%u returned %d", getCPUNumber(), rc);
++	}
++	return KERN_SUCCESS;
++}
++
++void
++NabuCPU::quiesceCPU(void)
++{
++	panic("NABU CPU: platform quiesce is not implemented");
++}
++
++void
++NabuCPU::haltCPU(void)
++{
++	panic("NABU CPU: PSCI CPU_OFF is not implemented");
++}
++
++const OSSymbol *
++NabuCPU::getCPUName(void)
++{
++	return cpuName;
++}
++#endif /* NABU */
+diff --git a/iokit/Kernel/arm/NabuPlatformExpert.cpp b/iokit/Kernel/arm/NabuPlatformExpert.cpp
+new file mode 100644
+index 0000000..1097e50
+--- /dev/null
++++ b/iokit/Kernel/arm/NabuPlatformExpert.cpp
+@@ -0,0 +1,82 @@
++/*
++ * Minimal device-tree platform expert for Xiaomi Pad 5 (nabu).
++ * This preserves the CPU topology and real device nodes; peripheral drivers
++ * are still provided by separate XNU driver work.
++ */
++#include <pexpert/arm64/board_config.h>
++
++#if defined(NABU)
++#include <IOKit/IOPlatformExpert.h>
++#include <IOKit/IODeviceTreeSupport.h>
++#include <IOKit/IOLib.h>
++
++class NabuPlatformExpert : public IODTPlatformExpert {
++	OSDeclareDefaultStructors(NabuPlatformExpert);
++
++public:
++	bool start(IOService *provider) APPLE_KEXT_OVERRIDE;
++	void processTopLevel(IORegistryEntry *root) APPLE_KEXT_OVERRIDE;
++	const char *deleteList(void) APPLE_KEXT_OVERRIDE;
++	const char *excludeList(void) APPLE_KEXT_OVERRIDE;
++	bool getTargetName(char *name, int maxLength) APPLE_KEXT_OVERRIDE;
++	bool getProductName(char *name, int maxLength) APPLE_KEXT_OVERRIDE;
++};
++
++OSDefineMetaClassAndStructors(NabuPlatformExpert, IODTPlatformExpert);
++
++bool
++NabuPlatformExpert::start(IOService *provider)
++{
++	IOLog("NABU: starting device-tree platform expert\n");
++	if (!IODTPlatformExpert::start(provider)) {
++		return false;
++	}
++	registerService();
++	IOLog("NABU: platform expert registered\n");
++	return true;
++}
++
++const char *
++NabuPlatformExpert::deleteList(void)
++{
++	return "()";
++}
++
++const char *
++NabuPlatformExpert::excludeList(void)
++{
++	return "('chosen', 'defaults', 'cpus', 'options')";
++}
++
++void
++NabuPlatformExpert::processTopLevel(IORegistryEntry *root)
++{
++	/* XNU assigns logical-cpu-id properties when it creates the CPU nubs. */
++	IORegistryEntry *cpus = root->childFromPath("cpus", gIODTPlane);
++	if (cpus != NULL) {
++		createNubs(this, IODTFindMatchingEntries(cpus, kIODTExclusive, NULL));
++		cpus->release();
++	}
++	createNubs(this, IODTFindMatchingEntries(root, kIODTExclusive, excludeList()));
++}
++
++bool
++NabuPlatformExpert::getTargetName(char *name, int maxLength)
++{
++	if (name == NULL || maxLength <= 0) {
++		return false;
++	}
++	strlcpy(name, "nabu", (size_t)maxLength);
++	return true;
++}
++
++bool
++NabuPlatformExpert::getProductName(char *name, int maxLength)
++{
++	if (name == NULL || maxLength <= 0) {
++		return false;
++	}
++	strlcpy(name, "Xiaomi Pad 5", (size_t)maxLength);
++	return true;
++}
++#endif /* NABU */
+diff --git a/iokit/KernelConfigTables.cpp b/iokit/KernelConfigTables.cpp
+index 559a9db..aa0f7ef 100644
+--- a/iokit/KernelConfigTables.cpp
++++ b/iokit/KernelConfigTables.cpp
+@@ -34,6 +34,20 @@
+ 
+ const char * gIOKernelConfigTables =
+     "("
++#if defined(ARM64_BOARD_CONFIG_NABU)
++    "   {"
++    "     'IOClass'         = NabuPlatformExpert;"
++    "     'IOProviderClass' = IOPlatformExpertDevice;"
++    "     'IONameMatch'     = 'xiaomi,nabu';"
++    "     'IOProbeScore'    = 10000:32;"
++    "   },"
++    "   {"
++    "     'IOClass'         = NabuCPU;"
++    "     'IOProviderClass' = IOPlatformDevice;"
++    "     'IONameMatch'     = 'qcom,kryo485';"
++    "     'IOProbeScore'    = 10000:32;"
++    "   },"
++#endif
+     "   {"
+     "     'IOClass'         = IOPanicPlatform;"
+     "     'IOProviderClass' = IOPlatformExpertDevice;"
+diff --git a/iokit/conf/files.arm64 b/iokit/conf/files.arm64
+index f2aa835..5223a6e 100644
+--- a/iokit/conf/files.arm64
++++ b/iokit/conf/files.arm64
+@@ -6,3 +6,6 @@ iokit/Kernel/IOPMrootDomain.cpp    					optional iokitcpp
+ # SMP
+ iokit/Kernel/arm/AppleARMSMP.cpp    					optional iokitcpp
+ 
++# Xiaomi Pad 5 / SM8150-AC platform and PSCI CPU startup
++iokit/Kernel/arm/NabuPlatformExpert.cpp                         optional iokitcpp
++iokit/Kernel/arm/NabuCPU.cpp                                    optional iokitcpp
+diff --git a/osfmk/arm64/cpu.c b/osfmk/arm64/cpu.c
+index 53f9ce5..e8f8080 100644
+--- a/osfmk/arm64/cpu.c
++++ b/osfmk/arm64/cpu.c
+@@ -934,6 +934,18 @@ cpu_start(int cpu)
+ 
+ 		flush_dcache((vm_offset_t)&CpuDataEntries[cpu], sizeof(cpu_data_entry_t), FALSE);
+ 		flush_dcache((vm_offset_t)cpu_data_ptr, sizeof(cpu_data_t), FALSE);
++#if defined(NABU)
++		/* The reset vector reads these structures and tables with caches off. */
++		extern uint8_t bootstrap_pagetables[BOOTSTRAP_TABLE_SIZE];
++		CleanPoC_DcacheRegion_Force((vm_offset_t)CpuDataEntries, sizeof(CpuDataEntries));
++		CleanPoC_DcacheRegion_Force((vm_offset_t)cpu_data_ptr, sizeof(cpu_data_t));
++		CleanPoC_DcacheRegion_Force((vm_offset_t)&ResetHandlerData, sizeof(ResetHandlerData));
++		CleanPoC_DcacheRegion_Force((vm_offset_t)BootArgs, sizeof(*BootArgs));
++		CleanPoC_DcacheRegion_Force((vm_offset_t)&sysreg_restore, sizeof(sysreg_restore));
++		CleanPoC_DcacheRegion_Force((vm_offset_t)&cpu_ttep, sizeof(cpu_ttep));
++		CleanPoC_DcacheRegion_Force((vm_offset_t)bootstrap_pagetables, BOOTSTRAP_TABLE_SIZE);
++		__builtin_arm_dsb(DSB_SY);
++#endif
+ #if CONFIG_SPTM
+ 		/**
+ 		 * On SPTM devices, CTRR is configured entirely by the SPTM. Due to this, this logic
+@@ -971,6 +983,19 @@ cpu_start(int cpu)
+ }
+ 
+ 
++#if defined(NABU)
++boolean_t
++nabu_cpu_signal_is_enabled(unsigned int cpu)
++{
++	if (cpu >= MAX_CPUS) {
++		return FALSE;
++	}
++	cpu_data_t *cdp = CpuDataEntries[cpu].cpu_data_vaddr;
++	return cdp != NULL && !(os_atomic_load(&cdp->cpu_signal, acquire) & SIGPdisabled);
++}
++#endif
++
++
+ void
+ cpu_timebase_init(boolean_t from_boot)
+ {
+diff --git a/osfmk/arm64/machine_routines.c b/osfmk/arm64/machine_routines.c
+index 07143d5..f9d4cb2 100644
+--- a/osfmk/arm64/machine_routines.c
++++ b/osfmk/arm64/machine_routines.c
+@@ -1154,6 +1154,16 @@ ml_parse_cpu_topology(void)
+ 	const boolean_t cpus_boot_arg_present = PE_parse_boot_argn("cpus", &cpu_boot_arg, sizeof(cpu_boot_arg));
+ 	const boolean_t cpumask_boot_arg_present = PE_parse_boot_argn("cpumask", &cpumask_boot_arg, sizeof(cpumask_boot_arg));
+ 
++#if defined(NABU)
++	/* SM8150 exposes eight Kryo 485 cores; never index beyond the device's CPU table. */
++	if (cpu_boot_arg == 0) {
++		cpu_boot_arg = 1;
++	}
++	if (cpu_boot_arg > NABU_SMP_MAX_CPUS) {
++		cpu_boot_arg = NABU_SMP_MAX_CPUS;
++	}
++#endif
++
+ 	// The cpus=N and cpumask=N boot args cannot be used simultaneously. Flag this
+ 	// so that we trigger a panic later in the boot process, once serial is enabled.
+ 	if (cpus_boot_arg_present && cpumask_boot_arg_present) {
+@@ -1237,6 +1247,20 @@ ml_parse_cpu_topology(void)
+ 			cpu->cluster_type = CLUSTER_TYPE_P;
+ 		}
+ 
++#if defined(NABU)
++		/* Linux's SM8150 DT gives 488 DMIPS/MHz for A55s and 1024 for A76s. */
++		if (cluster_type == 0) {
++			uint32_t capacity = (uint32_t)ml_readprop(child, "capacity-dmips-mhz", 0);
++			if (cpu->phys_id == 0x700) {
++				cpu->cluster_type = CLUSTER_TYPE_P;
++			} else if (capacity != 0 && capacity <= 512) {
++				cpu->cluster_type = CLUSTER_TYPE_E;
++			} else if (capacity != 0) {
++				cpu->cluster_type = CLUSTER_TYPE_M;
++			}
++		}
++#endif
++
+ 		if (ml_readprop(child, "cluster-power-down", 0)) {
+ 			topology_info.cluster_power_down = 1;
+ 		}
+diff --git a/osfmk/arm64/start.s b/osfmk/arm64/start.s
+index 2032c36..37b8b0b 100644
+--- a/osfmk/arm64/start.s
++++ b/osfmk/arm64/start.s
+@@ -289,6 +289,48 @@ LEXT(LowExceptionVectorBase)
+ LEXT(bootstrap_instructions)
+ 
+ #endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR) */
++#if defined(NABU)
++/* PSCI CPU_ON enters here in the highest non-secure EL with caches/MMU off. */
++	.align 2
++	.globl EXT(nabu_secondary_entry)
++LEXT(nabu_secondary_entry)
++	msr		DAIFSet, #0xf
++	mrs		x1, CurrentEL
++	cmp		x1, #0x4
++	b.eq	Lnabu_secondary_el1
++	cmp		x1, #0x8
++	b.ne	Lnabu_secondary_bad_el
++	adrp	x1, EXT(LowExceptionVectorBase)@page
++	add		x1, x1, EXT(LowExceptionVectorBase)@pageoff
++	msr		VBAR_EL2, x1
++	/* Drop to non-secure EL1; do not inherit hypervisor traps or stale timer offset. */
++	MOV64	x1, 0x80000000
++	msr		HCR_EL2, x1
++	msr		VTTBR_EL2, xzr
++	msr		CPTR_EL2, xzr
++	msr		MDCR_EL2, xzr
++	mov		x1, #3
++	msr		CNTHCTL_EL2, x1
++	msr		CNTVOFF_EL2, xzr
++	mrs		x1, ICC_SRE_EL2
++	orr		x1, x1, #9
++	msr		ICC_SRE_EL2, x1
++	MOV64	x1, 0x30d00800
++	msr		SCTLR_EL1, x1
++	isb
++	adrp	x1, Lnabu_secondary_el1@page
++	add		x1, x1, Lnabu_secondary_el1@pageoff
++	msr		ELR_EL2, x1
++	mov		x1, #0x3c5
++	msr		SPSR_EL2, x1
++	eret
++Lnabu_secondary_bad_el:
++	b		.
++Lnabu_secondary_el1:
++	msr		SPSel, #1
++	b		EXT(LowResetVectorBase)
++#endif /* NABU */
++
+ 	.align 2
+ 	.globl EXT(resume_idle_cpu)
+ LEXT(resume_idle_cpu)
+diff --git a/pexpert/pexpert/arm64/NABU.h b/pexpert/pexpert/arm64/NABU.h
+index 8753468..a02ff90 100644
+--- a/pexpert/pexpert/arm64/NABU.h
++++ b/pexpert/pexpert/arm64/NABU.h
+@@ -9,6 +9,7 @@
+ 
+ #define NO_MONITOR                   1
+ #define NABU                         1
++#define NABU_SMP_MAX_CPUS            8
+ #define HAS_CLUSTER                  1
+ #define __ARM_AMP__                  1
+ #define HAS_GIC_V3                   1

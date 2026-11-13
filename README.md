@@ -45,6 +45,7 @@ Le bootloader est toujours verrouillé (`ro.boot.flash.locked=1`). Aucune partit
 | `lab/compat/nabu_pauth_emu.h` | Modèle PAC ARM64 sans PAC | Décode et exécute en C les instructions PAC non-HINT, branches et chargements authentifiés pour le chemin de trappe XNU. |
 | `lab/compat/patches/xnu-12377/0002-emulate-pauth-el0-el1-without-pac.patch` | XNU 27.3 / nabu | Ajoute l'émulation PAC à EL0 et EL1, derrière `nabu-pauthemu=1`; le code XNU n'est pas compilé. |
 | `lab/compat/patches/xnu-12377/0003-nabu-sm8150-machine-and-gic.patch` | XNU 27.3 / nabu | Ajoute la config SM8150, GICv3 Group 1, le timer 19, SGI 1 et le rangement des affinités CPU; appliqué à blanc, pas compilé. |
+| `lab/compat/patches/xnu-12377/0004-nabu-psci-smp-and-platform-expert.patch` | XNU 27.3 / nabu | Ajoute l'ADT, le driver `IOCPU`, PSCI `CPU_ON` via SMC et le trampoline EL2→EL1. La série s'applique, mais XNU n'est pas compilé et aucun démarrage n'est confirmé. |
 | `lab/compat/patches/unixnu/nabu-machine-flags.patch` | UniXNU build | Permet au build XNU de remplacer les flags de carte de référence par les flags nabu tout en conservant ses chemins d'artefacts existants. |
 | `lab/nabu/macos-27.3/arm64-machine.config` | Fragment build nabu | Sélectionne `ARM64_BOARD_CONFIG_NABU` et ARMv8.2 pour le noyau expérimental. |
 | `lab/compat/test_nabu_pauth_emu.c` | Fixture C portable | 13 scénarios et les 1 024 immédiats LDRA compilés et exécutés sur l'hôte avec Zig/Clang; ce n'est pas un test de démarrage XNU. |

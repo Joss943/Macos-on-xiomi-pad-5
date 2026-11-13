@@ -14,8 +14,11 @@ License 2.0; the patches contain no Apple source file.
 
 `patches/xnu-12377/0003-nabu-sm8150-machine-and-gic.patch` is an independently
 written source patch for Apple's XNU 12377.121.6; it contains no Apple source
-file. `patches/unixnu/nabu-machine-flags.patch` is a build-script patch for the
-public UniXNU tree and contains no copied third-party implementation.
+file. `patches/xnu-12377/0004-nabu-psci-smp-and-platform-expert.patch` is an
+independently written XNU patch for nabu's device-tree enumeration and PSCI
+CPU startup; it also contains no Apple source file. `patches/unixnu/nabu-machine-flags.patch`
+is a build-script patch for the public UniXNU tree and contains no copied
+third-party implementation.
 
 `nabu_pauth_emu.h` is original no-PAC compatibility code for the ARM64
 instruction encodings listed in its decoder. It treats authentication as a
