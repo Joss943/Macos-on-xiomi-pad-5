@@ -22,13 +22,13 @@ La présence de `config/MASTER.arm64.MacOSX` dans ce tag ne constitue toutefois 
 
 Apple documente que les extensions noyau (kexts) sur Apple Silicon doivent prendre en charge l’architecture `arm64e`, qui utilise l’authentification de pointeurs (PAC). Le Snapdragon 860 de la Pad 5 utilise un CPU Qualcomm Kryo 485. L’architecture exacte et les fonctions PAC exposées par les cœurs de cette tablette doivent être mesurées sur l’appareil; je ne les déduis pas du seul nom du SoC.
 
-Sous Android, ouvre Termux et lance cette lecture seule :
+Sous Android, depuis un clone du dépôt ouvert dans Termux, lance ce contrôle en lecture seule :
 
 ```sh
-grep -E '^(processor|Features)' /proc/cpuinfo
+sh lab/probe_nabu_pac.sh
 ```
 
-Dans les lignes `Features`, relève si `paca` et `pacg` apparaissent. Linux définit ces indicateurs comme la présence de l’authentification de pointeurs. Colle la sortie complète dans la discussion : elle permettra de décider si le noyau Sonoma peut viser directement le CPU ou s’il faut traiter l’exécution des binaires `arm64e` comme un obstacle bloquant. L’absence des indicateurs est un signal fort, mais le test doit couvrir les huit cœurs et être recoupé avec les registres d’identification CPU avant toute tentative de démarrage.
+Le script affiche `paca` et `pacg` pour chaque ligne CPU trouvée dans `/proc/cpuinfo`. Linux définit ces indicateurs comme la présence d’authentification de pointeurs. Colle toute la sortie ici : elle décidera si le noyau Sonoma peut viser directement le CPU ou si l’exécution des binaires `arm64e` est un obstacle à résoudre. Si une capacité n’est pas annoncée, Android peut aussi la masquer; il faudra alors recouper les registres d’identification des huit cœurs avant un démarrage.
 
 - [Apple : kexts et arm64e sur Apple Silicon](https://developer.apple.com/documentation/kernel/implementing_drivers_system_extensions_and_kexts)
 - [Linux : indicateurs HWCAP_PACA et HWCAP_PACG](https://docs.kernel.org/6.6/arch/arm64/elf_hwcaps.html)
