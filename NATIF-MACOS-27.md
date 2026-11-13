@@ -43,6 +43,8 @@ Cette implémentation intercepte certaines instructions PAC arm64e en mode utili
 
 La portée reste insuffisante pour le kernelcache Mac17,11 mesuré ici : 370 membres Mach-O, 18 650 258 mots d'instructions scannés, 643 formes PAC à relocaliser, 24 formes refusées par l'abaisseur expérimental et 4 segments exécutables non couverts. La version actuelle du réécriveur refuse donc la sortie. L'émulation EL0 seule ne traite pas les instructions PAC dans le noyau et les kexts EL1.
 
+Les fixups de données confirment l'ampleur du travail : le kernelcache racine contient 1 017 384 pointeurs chaînés, dont 898 429 authentifiés PAC dans `__DATA_CONST` et `__DATA` (clé IA : 895 390; clé DA : 3 039). Le tactile seul dépend de 334 entrées authentifiées. Le scanner [`lab/compat/scan_kernelcache_fixups.py`](lab/compat/scan_kernelcache_fixups.py) a parcouru les 672 chaînes sur trois segments; son résultat [`lab/results/macos27-kernelcache-fixup-summary.json`](lab/results/macos27-kernelcache-fixup-summary.json) confirme que l'IPSW n'a pas été modifié. Une voie arm64 sans PAC doit à la fois convertir les pointeurs chaînés et adapter les instructions PAC avant qu'un démarrage puisse être tenté.
+
 Mesures publiées : [`lab/results/nabu-macos27-pacemu-reference.json`](lab/results/nabu-macos27-pacemu-reference.json) et [`lab/results/macos27-kernelcache-pac-scan-summary.json`](lab/results/macos27-kernelcache-pac-scan-summary.json). Aucun fichier Apple n'a été inclus dans ce dépôt.
 
 ## Pilote tactile et Wi-Fi nabu
