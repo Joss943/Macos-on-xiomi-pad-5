@@ -27,7 +27,7 @@ Le bootloader de la tablette était verrouillé lors de la dernière lecture ADB
 | `lab/compat/xar_extract.py` | PC | Lecture/extraction XAR contrôlée avec vérification des checksums du TOC et des membres. |
 | `lab/compat/pbzx_extract.py` | PC | Décodage des blocs XZ/raw `pbzx` utilisés dans les paquets Apple. |
 | `lab/compat/inspect_macho_arch.py` | PC | Inventaire des tranches Mach-O `arm64` et `arm64e`. |
-| `lab/compat/arm64e_pauth.py` | PC | Traduit plusieurs formes PAC/PAUTH, y compris les instructions PACIASP/AUTIASP; formes inconnues refusées. |
+| `lab/compat/arm64e_pauth.py` | PC | Traduit des formes PAC/PAUTH, dont PACIASP/AUTIASP et certains LDRAA/LDRAB; cas risqués refusés. |
 | `lab/compat/scan_arm64e_pauth.py` | PC | Repère les instructions PAC connues dans les régions exécutables d'un Mach-O `arm64e`, sans modifier le fichier. |
 
 Captures des tests (OpenCore, Catalina Recovery et Utilities, Sonoma Recovery) : dossier `xiaomi-pad5-macos/` du dépôt `fedora-config`, branche `ccr-475fd790-4b2n9n`.

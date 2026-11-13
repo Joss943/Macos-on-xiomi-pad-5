@@ -129,12 +129,13 @@ def lower(word: int) -> Lowering | None:
     return None
 
 
-def lower_sequence(word: int) -> SequenceLowering | None:
+def lower_sequence(word: int, scratch_register: int | None = None) -> SequenceLowering | None:
     """Lower an instruction to one or more words when the semantics allow it.
 
     The multiword LDRAA/LDRAB cases use the load destination as a temporary
-    only when it does not alias the base. A full Mach-O rewriter must still
-    relocate branches and metadata before these sequences can be installed.
+    when safe. A caller-provided scratch register is accepted only for a
+    no-writeback load and must be proven dead by the caller. A full Mach-O
+    rewriter must still relocate branches and metadata before installation.
     """
     try:
         direct = lower(word)
@@ -162,11 +163,18 @@ def lower_sequence(word: int) -> SequenceLowering | None:
         if rn == rt and rn != 31:
             raise ValueError(f"{word:#010x}: pre-indexed load overlaps base and destination")
         rd = rn
+        load_base = rn
         addend = abs(offset)
     else:
         if rt == 31 or rt == rn:
-            raise ValueError(f"{word:#010x}: no safe temporary register for expanded load")
-        rd = rt
+            if scratch_register is None:
+                raise ValueError(f"{word:#010x}: no safe temporary register for expanded load")
+            if not 0 <= scratch_register < 31 or scratch_register == rn:
+                raise ValueError(f"{word:#010x}: scratch register must be X0-X30 and distinct from the base")
+            rd = scratch_register
+        else:
+            rd = rt
+        load_base = rd
         addend = abs(offset)
 
     if addend == 0:
@@ -177,7 +185,6 @@ def lower_sequence(word: int) -> SequenceLowering | None:
         raise ValueError(f"{word:#010x}: address adjustment does not fit ADD/SUB immediate")
     opcode = 0xD1000000 if offset < 0 else 0x91000000  # SUB/ADD Xd, Xn, #imm
     adjustment = opcode | (shift << 22) | (immediate << 10) | (rn << 5) | rd
-    load_base = rn if writeback else rt
     load = 0xF9400000 | (load_base << 5) | rt  # LDR Xt, [Xn/SP]
     return SequenceLowering(mnemonic, (adjustment, load))
 

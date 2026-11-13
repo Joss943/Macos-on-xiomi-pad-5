@@ -36,6 +36,10 @@ class PointerAuthLoweringTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             PAUTH.lower_sequence(0xF87AF7FF)
 
+    def test_ldraa_can_use_a_caller_proven_dead_scratch(self):
+        sequence = PAUTH.lower_sequence(0xF87AF7FF, scratch_register=16)
+        self.assertEqual(sequence.replacements, (0xD1000000 | (648 << 10) | (31 << 5) | 16, 0xF9400000 | (16 << 5) | 31))
+
     def test_zero_modifier_forms_require_register_31(self):
         self.assertEqual(PAUTH.lower(0xDAC123F0), ("paciza", 0xD503201F))
         with self.assertRaises(ValueError):
