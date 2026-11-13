@@ -45,6 +45,8 @@ Le bootloader est toujours verrouillé (`ro.boot.flash.locked=1`). Aucune partit
 | `lab/compat/patches/xnu-12377/0002-emulate-pauth-el0-el1-without-pac.patch` | XNU 27.3 / nabu | Ajoute l'émulation PAC à EL0 et EL1, derrière `nabu-pauthemu=1`; le code XNU n'est pas compilé. |
 | `lab/compat/test_nabu_pauth_emu.c` | Fixture C portable | 13 scénarios et les 1 024 immédiats LDRA compilés et exécutés sur l'hôte avec Zig/Clang; ce n'est pas un test de démarrage XNU. |
 | `lab/results/macos27-pauth-emulator-fixtures.json` | Résultat fixture | Résume les cas passés et les validations qui restent à faire. |
+| `lab/compat/patches/unixnu/nabu-macos27-arm64-profile.patch` | UniXNU resolver | Permet à l'override macOS 27.3 du seul appareil nabu de sélectionner ARM64 sans changer le profil Mac général. |
+| `lab/nabu/macos-27.3/arm64-override.toml` | Fragment profil nabu | Sélectionne ARM64 dans l'override de macOS 27.3, nécessaire au Snapdragon 860 sans PAC. |
 | `lab/nabu/nt36523_touch.py` | PC | Décode les rapports multitouch SPI du contrôleur Novatek NT36523; ce n'est pas encore son pilote macOS. |
 
 Captures des tests (OpenCore, Catalina Recovery et Utilities, Sonoma Recovery) : dossier `xiaomi-pad5-macos/` du dépôt `fedora-config`, branche `ccr-475fd790-4b2n9n`.
@@ -212,5 +214,4 @@ La licence macOS n'autorise son exécution que sur du matériel Apple, y compris
 - OSX-KVM : <https://github.com/kholia/OSX-KVM> ; macrecovery (OpenCorePkg) : <https://github.com/acidanthera/OpenCorePkg>
 - macOS émulé sous TCG : <https://github.com/utmapp/UTM/discussions/4349>
 - macOS ARM en VM : <https://github.com/guoPhineas/vmapple-cli>, <https://github.com/yaelliethy/orchard>, <https://github.com/steelbrain/experiment-macOS-arm64-on-linux-x86>, <https://www.qemu.org/docs/master/system/arm/vmapple.html>
-
 

@@ -1,0 +1,4 @@
+# Merge into the nabu device board after selecting os_profile = "macos-27.3-26C5035r".
+# Requires lab/compat/patches/unixnu/nabu-macos27-arm64-profile.patch in the UniXNU checkout.
+[os_overrides."macos-27.3-26C5035r".os]
+arch = "arm64"

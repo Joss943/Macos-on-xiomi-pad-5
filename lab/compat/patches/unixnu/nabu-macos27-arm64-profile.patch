@@ -1,0 +1,59 @@
+diff --git a/scripts/check-unixnu.py b/scripts/check-unixnu.py
+index 103093f..71d1092 100755
+--- a/scripts/check-unixnu.py
++++ b/scripts/check-unixnu.py
+@@ -13,6 +13,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
+ 
+ from unixnu import cli, feeds, ipsw, payload
+ from unixnu.config import Context, parse_config
++from unixnu.profiles import resolve_arch_name
+ from unixnu.util import Error
+ 
+ 
+@@ -48,6 +49,14 @@ def der(tag, body):
+ 
+ 
+ def main():
++    expect(resolve_arch_name({'os': {'arch': 'arm64e'}}, {}) == 'arm64e', 'OS profile architecture default')
++    expect(resolve_arch_name({'os': {'arch': 'arm64e'}}, {'os': {'arch': 'arm64'}}) == 'arm64',
++           'device OS override selects arm64 for non-PAC hardware')
++    try:
++        resolve_arch_name({'os': {'arch': 'arm64e'}}, {'os': {'arch': 'x86_64'}})
++        expect(False, 'unsupported OS architecture override accepted')
++    except Error:
++        pass
+     config = parse_config('# c\nCONFIG_A=y\nCONFIG_B=n\n# CONFIG_C is not set\nCONFIG_D="x y"\nCONFIG_E=0x10\n')
+     expect(config == {'A': True, 'B': False, 'C': False, 'D': 'x y', 'E': 16}, 'defconfig values')
+     for raw, value in (
+diff --git a/scripts/unixnu/profiles.py b/scripts/unixnu/profiles.py
+index 973fbae..63013a2 100644
+--- a/scripts/unixnu/profiles.py
++++ b/scripts/unixnu/profiles.py
+@@ -35,6 +35,14 @@ def resolve_os(ctx, wanted):
+     return matches[0]
+ 
+ 
++def resolve_arch_name(os_profile, override):
++    """Select the kernel architecture, allowing a device's OS-specific override."""
++    arch_name = override.get('os', {}).get('arch') or os_profile.get('os', {}).get('arch', 'arm64')
++    if arch_name not in ('arm64', 'arm64e'):
++        raise Error(f'OS profile architecture must be arm64 or arm64e, got {arch_name!r}')
++    return arch_name
++
++
+ def load(ctx, allow_fetch=False):
+     from . import feeds
+     board = ctx.raw_board.get('board', {})
+@@ -47,9 +55,9 @@ def load(ctx, allow_fetch=False):
+         raise Error('[board] os_profile must be a profile directory name')
+     ctx.soc = feeds.resolve_soc(ctx, soc_name, allow_fetch)
+     os_root = ctx.root / 'profiles/os' / os_name
+-    arch_name = load_toml(os_root / 'profile.toml').get('os', {}).get('arch', 'arm64')
+-    if arch_name not in ('arm64', 'arm64e'):
+-        raise Error(f'{os_name}: [os] arch must be arm64 or arm64e')
++    os_profile = load_toml(os_root / 'profile.toml')
++    os_override = ctx.raw_board.get('os_overrides', {}).get(os_name, {})
++    arch_name = resolve_arch_name(os_profile, os_override)
+     ctx.profile_roots = {'arch': ctx.root / 'profiles/arch' / arch_name, 'soc': ctx.soc.path,
+                          'os': os_root, 'device': ctx.device}
+     ctx.profile_files = [ctx.profile_roots['arch'] / 'profile.toml', ctx.soc.path / 'soc.toml',
