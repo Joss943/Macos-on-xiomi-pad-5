@@ -41,6 +41,10 @@ Le bootloader est toujours verrouillé (`ro.boot.flash.locked=1`). Aucune partit
 | `lab/results/macos27-kernelcache-fixup-summary.json` | Résultat des fixups 27.3 | 898 429 pointeurs authentifiés sur 1 017 384 entrées; les clés IA et DA sont comptées par segment. |
 | `lab/results/macos27-kernelcache-fixup-resolution.json` | Résolution des fixups 27.3 | Les 1 017 384 cibles sont résolues au niveau 0 et retombent dans les segments racine; aucun pointeur n'est réécrit. |
 | `lab/compat/patches/xnu-12377/0001-accept-authenticated-fixups-without-pac.patch` | XNU 27.3 / nabu | Le chemin XNU sans PAC stocke les VA résolues comme pointeurs ordinaires au lieu d'arrêter sur les 898 429 fixups authentifiés; il ne simule pas les instructions PAC. Le patch n'a pas encore été compilé ni démarré. |
+| `lab/compat/nabu_pauth_emu.h` | Modèle PAC ARM64 sans PAC | Décode et exécute en C les instructions PAC non-HINT, branches et chargements authentifiés pour le chemin de trappe XNU. |
+| `lab/compat/patches/xnu-12377/0002-emulate-pauth-el0-el1-without-pac.patch` | XNU 27.3 / nabu | Ajoute l'émulation PAC à EL0 et EL1, derrière `nabu-pauthemu=1`; le code XNU n'est pas compilé. |
+| `lab/compat/test_nabu_pauth_emu.c` | Fixture C portable | 13 scénarios et les 1 024 immédiats LDRA compilés et exécutés sur l'hôte avec Zig/Clang; ce n'est pas un test de démarrage XNU. |
+| `lab/results/macos27-pauth-emulator-fixtures.json` | Résultat fixture | Résume les cas passés et les validations qui restent à faire. |
 | `lab/nabu/nt36523_touch.py` | PC | Décode les rapports multitouch SPI du contrôleur Novatek NT36523; ce n'est pas encore son pilote macOS. |
 
 Captures des tests (OpenCore, Catalina Recovery et Utilities, Sonoma Recovery) : dossier `xiaomi-pad5-macos/` du dépôt `fedora-config`, branche `ccr-475fd790-4b2n9n`.
@@ -208,4 +212,5 @@ La licence macOS n'autorise son exécution que sur du matériel Apple, y compris
 - OSX-KVM : <https://github.com/kholia/OSX-KVM> ; macrecovery (OpenCorePkg) : <https://github.com/acidanthera/OpenCorePkg>
 - macOS émulé sous TCG : <https://github.com/utmapp/UTM/discussions/4349>
 - macOS ARM en VM : <https://github.com/guoPhineas/vmapple-cli>, <https://github.com/yaelliethy/orchard>, <https://github.com/steelbrain/experiment-macOS-arm64-on-linux-x86>, <https://www.qemu.org/docs/master/system/arm/vmapple.html>
+
 
