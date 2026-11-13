@@ -103,7 +103,9 @@ def scan_bytes(data: bytes, sample_limit: int = 256) -> dict:
         raise MachOError("truncated Mach-O header")
     root_type, root_regions, fileset_entries, root_uncovered = _load_macho(data, 0, "root", False)
     regions = list(root_regions)
-    uncovered = [] if root_type == MH_FILESET else list(root_uncovered)
+    # The fileset root can contain executable bootstrap segments as well as
+    # embedded Mach-O members. Keep both sets of uncovered regions.
+    uncovered = list(root_uncovered)
     if root_type == MH_FILESET:
         if not fileset_entries:
             raise MachOError("MH_FILESET has no LC_FILESET_ENTRY commands")

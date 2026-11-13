@@ -37,13 +37,13 @@ Reproduire la lecture depuis un PC équipé d'ADB :
 
 ## Émulation PAC : piste vérifiée sur la version XNU ciblée
 
-Le profil macOS 27.3 épingle XNU `12377.121.6` (`ac9718fb1af618d5ce8678d0dc6e8a58f252216f`). Le projet public [Bergamota](https://github.com/ry-diffusion/Bergamota) fournit un correctif d'émulation PAC pour cette génération de XNU. J'ai vérifié localement que son correctif `1019-sweet-pac-emulation.patch` s'applique à cette révision après son prérequis `0141-sweet-fjcvtzs-emulation.patch`.
+Le profil macOS 27.3 épingle XNU `12377.121.6` (`ac9718fb1af618d5ce8678d0dc6e8a58f252216f`). Le projet public [Bergamota](https://github.com/ry-diffusion/Bergamota) fournit un [correctif d'émulation PAC](https://github.com/ry-diffusion/Bergamota/blob/develop/xnu/patches-12377/1019-sweet-pac-emulation.patch) pour cette génération de XNU. J'ai vérifié localement que ce correctif s'applique à cette révision après son prérequis `0141-sweet-fjcvtzs-emulation.patch`.
 
 Cette implémentation intercepte certaines instructions PAC arm64e en mode utilisateur 64 bits et les émule dans XNU. Le rapport du projet décrit des vérifications du décodeur et une compilation CI, mais indique qu'aucun démarrage sur l'appareil n'a encore été réalisé. Cette piste n'est donc pas encore validée en démarrage natif, ni adaptée au profil macOS 27.3.
 
 La portée reste insuffisante pour le kernelcache Mac17,11 mesuré ici : 370 membres Mach-O, 18 650 258 mots d'instructions scannés, 643 formes PAC à relocaliser, 24 formes refusées par l'abaisseur expérimental et 4 segments exécutables non couverts. La version actuelle du réécriveur refuse donc la sortie. L'émulation EL0 seule ne traite pas les instructions PAC dans le noyau et les kexts EL1.
 
-Mesure d'intégration reproductible : le correctif PAC de référence s'applique au XNU épinglé après le correctif JSCVT; aucun fichier Apple n'a été inclus dans ce dépôt.
+Mesures publiées : [`lab/results/nabu-macos27-pacemu-reference.json`](lab/results/nabu-macos27-pacemu-reference.json) et [`lab/results/macos27-kernelcache-pac-scan-summary.json`](lab/results/macos27-kernelcache-pac-scan-summary.json). Aucun fichier Apple n'a été inclus dans ce dépôt.
 
 ## Travail restant vers le démarrage natif
 

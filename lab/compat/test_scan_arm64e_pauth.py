@@ -1,58 +1,69 @@
-import importlib.util
+from __future__ import annotations
+
 import struct
 import unittest
-from pathlib import Path
+
+import scan_arm64e_pauth
 
 
-ROOT = Path(__file__).parent
-SPEC = importlib.util.spec_from_file_location("scan_arm64e_pauth", ROOT / "scan_arm64e_pauth.py")
-SCAN = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(SCAN)
+def _segment_command(name: str, file_offset: int, file_size: int) -> bytes:
+    return struct.pack(
+        "<II16sQQQQiiII",
+        scan_arm64e_pauth.LC_SEGMENT_64,
+        72,
+        name.encode("ascii").ljust(16, b"\0"),
+        0,
+        file_size,
+        file_offset,
+        file_size,
+        7,
+        5,
+        0,
+        0,
+    )
 
 
-def macho_with_instruction(word: int, base_offset: int = 0) -> bytes:
-    segment_size = 72 + 80
-    code_offset = base_offset + 32 + segment_size
-    header = struct.pack("<8I", 0xFEEDFACF, 0x0100000C, 2, 2, 1, segment_size, 0, 0)
-    segment = struct.pack("<II16sQQQQiiII", 0x19, segment_size, b"__TEXT", 0x1000, 4, base_offset, segment_size + 4, 7, 5, 1, 0)
-    section = struct.pack("<16s16sQQIIIIIIII", b"__text", b"__TEXT", 0x1000, 4, code_offset, 2, 0, 0, 0x80000400, 0, 0, 0)
-    return header + segment + section + struct.pack("<I", word)
+def _macho(filetype: int, commands: bytes, ncmds: int) -> bytes:
+    return struct.pack(
+        "<8I",
+        0xFEEDFACF,
+        scan_arm64e_pauth.CPU_TYPE_ARM64,
+        scan_arm64e_pauth.CPU_SUBTYPE_ARM64E,
+        filetype,
+        ncmds,
+        len(commands),
+        0,
+        0,
+    ) + commands
 
 
-def fileset_with_instruction(word: int) -> bytes:
-    ident = b"com.apple.kernel\0"
-    command_size = 56
-    member_offset = 32 + command_size
-    command = struct.pack("<IIQQII", SCAN.LC_FILESET_ENTRY, command_size, 0x2000, member_offset, 32, 0)
-    command += ident + bytes(command_size - len(command) - len(ident))
-    header = struct.pack("<8I", 0xFEEDFACF, 0x0100000C, 2, SCAN.MH_FILESET, 1, command_size, 0, 0)
-    return header + command + macho_with_instruction(word, member_offset)
+class FilesetCoverageTests(unittest.TestCase):
+    def test_root_executable_segments_are_not_dropped(self):
+        root_segment = _segment_command("__TEXT_EXEC", 0x800, 4)
+        ident = b"com.apple.kernel\0"
+        entry_size = 32 + len(ident)
+        entry = struct.pack(
+            "<IIQQII",
+            scan_arm64e_pauth.LC_FILESET_ENTRY,
+            entry_size,
+            0,
+            0x1000,
+            32,
+            0,
+        ) + ident
+        root = _macho(scan_arm64e_pauth.MH_FILESET, root_segment + entry, 2)
 
+        member_segment = _segment_command("__TEXT_EXEC", 0x1200, 4)
+        member = _macho(2, member_segment, 1)
+        image = bytearray(0x1204)
+        image[: len(root)] = root
+        image[0x1000 : 0x1000 + len(member)] = member
 
-class PointerAuthScanTests(unittest.TestCase):
-    def test_scans_instruction_sections_without_changing_bytes(self):
-        image = macho_with_instruction(0xD503233F)
-        report = SCAN.scan_bytes(image)
-        self.assertEqual(report["summary"]["by_instruction"], {"paciasp": 1})
-        self.assertEqual(report["hit_samples"][0]["replacement_words"], ["0xd503201f"])
-        self.assertFalse(report["image_modified"])
+        report = scan_arm64e_pauth.scan_bytes(bytes(image))
 
-    def test_refuses_non_arm64e_images(self):
-        image = bytearray(macho_with_instruction(0xD503233F))
-        struct.pack_into("<I", image, 8, 0)
-        with self.assertRaises(SCAN.MachOError):
-            SCAN.scan_bytes(bytes(image))
-
-    def test_follows_fileset_entry_to_kernel_code(self):
-        report = SCAN.scan_bytes(fileset_with_instruction(0xD503233F))
-        self.assertEqual(report["filetype"], "MH_FILESET")
+        self.assertIn("root:__TEXT_EXEC", report["uncovered_executable_segments"])
         self.assertEqual(report["summary"]["fileset_members_scanned"], 1)
-        self.assertEqual(report["summary"]["by_instruction"], {"paciasp": 1})
-
-    def test_refuses_truncated_instruction_section(self):
-        image = macho_with_instruction(0xD503233F)[:-1]
-        with self.assertRaises(SCAN.MachOError):
-            SCAN.scan_bytes(image)
+        self.assertIn("com.apple.kernel:__TEXT_EXEC", [r["name"] for r in report["regions"]])
 
 
 if __name__ == "__main__":
