@@ -27,6 +27,24 @@ _DP1SRC = (
     "paciza", "pacizb", "pacdza", "pacdzb", "autiza", "autizb", "autdza",
     "autdzb", "xpaci", "xpacd",
 )
+# These encodings occupy the architected HINT space. On a CPU without FEAT_PAuth
+# they are architectural NOPs; spelling them out also lets the rewriter report
+# which PAC-specific operations it found in an arm64e image.
+_PAUTH_HINTS = {
+    0xD503211F: "pacia1716",
+    0xD503215F: "pacib1716",
+    0xD503219F: "autia1716",
+    0xD50321DF: "autib1716",
+    0xD503231F: "paciaz",
+    0xD503235F: "pacibz",
+    0xD503239F: "autiaz",
+    0xD50323DF: "autibz",
+    0xD503233F: "paciasp",
+    0xD503237F: "pacibsp",
+    0xD50323BF: "autiasp",
+    0xD50323FF: "autibsp",
+    0xD50320FF: "xpaclri",
+}
 _BRANCHES = (
     (0xD61F081F, 0xFFFFFC1F, "braaz", 0xD61F0000),
     (0xD61F0C1F, 0xFFFFFC1F, "brabz", 0xD61F0000),
@@ -53,6 +71,9 @@ def lower(word: int) -> Lowering | None:
     """
     if not 0 <= word <= 0xFFFFFFFF:
         raise ValueError(f"instruction word outside uint32: {word!r}")
+
+    if word in _PAUTH_HINTS:
+        return Lowering(_PAUTH_HINTS[word], NOP)
 
     if word & 0xFFFF0000 == 0xDAC10000:
         opcode = (word >> 10) & 0x3F

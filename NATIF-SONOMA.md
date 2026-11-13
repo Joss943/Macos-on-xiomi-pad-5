@@ -14,7 +14,7 @@ L'inventaire réseau Android montre `wlan0` et `wlan1` sous `platform/soc/188000
 
 `lab/compat/inspect_macho_arch.py` inventorie les tranches Mach-O d'un volume monté et distingue `arm64` de `arm64e`. Il lit les en-têtes uniquement et écrit un rapport JSON sans modifier le volume.
 
-`lab/compat/arm64e_pauth.py` contient les premières traductions d'instructions PAC vers des instructions AArch64 ordinaires. Les formes à traduction exacte sont traitées; les formes non prises en charge lèvent une erreur. La réécriture d'un système, la régénération des signatures, les pilotes macOS et la production d'une image de démarrage demandent encore leur propre implémentation.
+`lab/compat/arm64e_pauth.py` traduit plusieurs formes PAC vers des instructions compatibles sans PAC, dont `PACIASP/PACIBSP/AUTIASP/AUTIBSP` et `XPACLRI`. Les formes sans traduction exacte lèvent une erreur. C'est un module de traduction d'instructions, pas encore un réécrivain de noyau : il ne trouve pas les frontières de fonctions, ne traite pas toutes les opérations PAC ni les ABI `arm64e`, et ne produit pas une image de démarrage.
 
 `lab/compat/xar_extract.py` lit les archives XAR Apple, contrôle le hash du TOC comprimé et les hashes des membres, puis extrait un membre demandé sans écraser de fichier existant. `lab/compat/pbzx_extract.py` décode les blocs XZ ou bruts du flux `pbzx` de l'installateur.
 
@@ -31,7 +31,9 @@ python lab\compat\xar_extract.py InstallAssistant.pkg --extract Payload --output
 python lab\compat\pbzx_extract.py Payload InstallAssistant.cpio
 ```
 
-L'installateur officiel Apple Sonoma 14.8.9 (build 23J631) est en cours de téléchargement local pour l'analyse; il n'est pas inclus dans GitHub. La TOC XAR et le membre `PackageInfo` sont déjà validés contre leurs SHA-1 : 430 octets stockés donnent 918 octets extraits. Le membre `Payload` (11 651 320 octets) s'est décodé en 3 blocs `pbzx`, donnant un cpio ODC de 42 607 616 octets (SHA-256 `2d8f442fe563ff136578d221354d5d85c87d2459f78f525e132d04c29785069c`). Dans l'application d'installation seulement, l'inventaire compte 24 Mach-O, dont 15 tranches `arm64e`, 9 `arm64` et aucune erreur. Ce relevé ne couvre pas le noyau ni les pilotes du système; l'image `SharedSupport.dmg` reste à analyser.
+L'installateur officiel Apple Sonoma 14.8.9 (build 23J631) a été entièrement extrait localement. Le `kernelcache.release.mac15j` décodé fait 104 972 288 octets et son en-tête Mach-O indique `arm64e`, type `MH_FILESET`. C'est le noyau Apple d'un modèle Mac ciblé, pas un noyau nabu. Les métadonnées confirment XNU `xnu-10063.141.1`. Les images système restent sur le PC et ne sont pas dans le dépôt.
+
+Le `SharedSupport.dmg` de 13 643 079 050 octets et l'archive de mise à jour sont extraits; leurs tailles et hashes XAR ont été vérifiés. Cette extraction fournit les binaires à analyser, pas un installateur pour la Pad 5.
 
 ## Pourquoi aucun flash Sonoma n'est lancé
 
@@ -49,8 +51,8 @@ Cette copie n'inclut pas les partitions Android (boot, vendor, firmware, userdat
 
 ## Prochaine étape technique
 
-1. Terminer l'analyse de l'installateur 14.8.9 et inventorier les architectures de son volume système.
-2. Adapter le noyau XNU Darwin 23 à la cible macOS sur SM8150 et qualifier les ABI des pilotes de stockage, écran et tactile.
+1. Cartographier les instructions PAC et les dépendances `arm64e` dans le noyau et les composants extraits; le décodeur d'instructions est le premier outil de cette étape.
+2. Construire un XNU Darwin 23 adapté au SM8150, puis qualifier les ABI et pilotes de stockage, écran et tactile.
 3. Implémenter le pilote WCN3998 de nabu et intégrer l'interface réseau attendue par macOS.
 4. Produire l'image, démarrer depuis l'ESP sans effacer Android, puis qualifier le tactile et le Wi-Fi avant de préparer une installation persistante.
 

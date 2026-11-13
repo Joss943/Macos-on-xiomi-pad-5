@@ -14,6 +14,14 @@ class PointerAuthLoweringTests(unittest.TestCase):
         self.assertEqual(PAUTH.lower(0xDAC10041), ("pacia", 0xD503201F))
         self.assertEqual(PAUTH.lower(0xDAC11DEE), ("autdb", 0xD503201F))
 
+    def test_pointer_authentication_hints_are_nops_without_pauth(self):
+        self.assertEqual(PAUTH.lower(0xD503233F), ("paciasp", 0xD503201F))
+        self.assertEqual(PAUTH.lower(0xD503237F), ("pacibsp", 0xD503201F))
+        self.assertEqual(PAUTH.lower(0xD50323BF), ("autiasp", 0xD503201F))
+        self.assertEqual(PAUTH.lower(0xD50323FF), ("autibsp", 0xD503201F))
+        self.assertEqual(PAUTH.lower(0xD50320FF), ("xpaclri", 0xD503201F))
+        self.assertEqual(PAUTH.lower(0xD503211F), ("pacia1716", 0xD503201F))
+
     def test_zero_modifier_forms_require_register_31(self):
         self.assertEqual(PAUTH.lower(0xDAC123F0), ("paciza", 0xD503201F))
         with self.assertRaises(ValueError):
