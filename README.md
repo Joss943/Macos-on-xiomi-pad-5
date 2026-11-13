@@ -1,14 +1,14 @@
-# macOS sur Xiaomi Pad 5 (nabu, Snapdragon 860 / SM8150-AC)
+# macOS 27.3 sur Xiaomi Pad 5 (nabu, Snapdragon 860 / SM8150)
 
-Recherche prioritaire : démarrer macOS Sonoma directement sur la Pad 5. La version courante est Sonoma 14.8.9. Les seuls essais macOS déjà consignés dans ce dépôt sont des démarrages QEMU/TCG jusqu'à Recovery; **aucune image native Sonoma n'existe encore et rien n'a été flashé sur la tablette**.
+**Cible unique : démarrer macOS 27.3 (26C5035r) nativement sur la Pad 5.** Le profil UniXNU correspondant est arm64e et exige le PAC matériel. Sur les huit cœurs Android, les registres PAC lus directement valent zéro et les instructions PAC testées lèvent une instruction illégale. Aucun build natif ou flash macOS n'a été effectué. Voir [NATIF-MACOS-27.md](NATIF-MACOS-27.md) pour les mesures et l'avancement de la voie d'émulation.
 
-Le bootloader de la tablette était verrouillé lors de la dernière lecture ADB. Une copie locale du stockage partagé a été vérifiée avant toute écriture. Elle ne remplace pas une sauvegarde brute des partitions Android; ne lance pas les commandes `single`, `fastboot flashing unlock` ou un script de flash sans image native installable et procédure de retour arrière vérifiée. Le suivi et les résultats mesurés sont dans [NATIF-SONOMA.md](NATIF-SONOMA.md).
+Le bootloader est toujours verrouillé (`ro.boot.flash.locked=1`). Aucune partition n'a été modifiée. Les essais Sonoma via QEMU décrits dans [NATIF-SONOMA.md](NATIF-SONOMA.md) sont historiques et ne constituent pas un port natif.
 
 ## Conclusion en 30 secondes
 
 | Objectif | Faisable ? | Comment |
 |---|---|---|
-| macOS Sonoma **natif** sur nabu | **Non démarré** | Aucun profil ou image Sonoma native prêt à installer n'a été trouvé pour la Pad 5. Voir [NATIF-SONOMA.md](NATIF-SONOMA.md); les essais QEMU ne constituent pas une installation native. |
+| macOS 27.3 **natif** sur nabu | **Non démarré; compatibilité PAC à intégrer** | Le profil macOS 27.3 cible arm64e. Une piste d'émulation PAC existe pour le même XNU, mais ni le kernelcache Mac ni un démarrage nabu ne sont encore validés. Voir [NATIF-MACOS-27.md](NATIF-MACOS-27.md). |
 | Linux sur la Pad 5 (référence matérielle seulement) | **Oui** | Un port communautaire Ubuntu documente les pilotes et l'état du matériel nabu; ce n'est pas l'objectif d'installation de ce dépôt. |
 | macOS **en VM émulée** | **Recovery testée; installation inachevée** | QEMU + TCG + OpenCore. Catalina atteint Utilities et Sonoma atteint Recovery dans le labo x86-64; le téléchargement/install n'a pas été terminé et aucun test sur Pad 5 n'est consigné. |
 | macOS **ARM (Apple Silicon) en VM** | **Pas validé** | La Pad 5 expose 6 Go de RAM et n'expose pas `paca`/`pacg` dans Android; aucune VM Apple Silicon n'a été validée sur elle. |
@@ -30,6 +30,10 @@ Le bootloader de la tablette était verrouillé lors de la dernière lecture ADB
 | `lab/compat/arm64e_pauth.py` | PC | Traduit des formes PAC/PAUTH, dont PACIASP/AUTIASP et certains LDRAA/LDRAB; cas risqués refusés. |
 | `lab/compat/scan_arm64e_pauth.py` | PC | Repère les instructions PAC connues dans les régions exécutables d'un Mach-O `arm64e`, sans modifier le fichier. |
 | `lab/compat/macho_codesign.py` | PC | Recalcule plusieurs CodeDirectories SHA-1/SHA-256, retire l'enveloppe CMS et vérifie les pages d'un Mach-O signé; ne construit pas d'image amorçable. |
+| `lab/compat/rewrite_macho_pauth.py` | PC | Réécriture arm64e de largeur fixe avec rafraîchissement de signature; refuse les formes PAC qui exigent relocalisation ou sont inconnues. |
+| `lab/probe_nabu_macos27.ps1` | PC Windows avec ADB | Collecte les indicateurs PAC Linux, MIDR, propriétés SoC et verrouillage du bootloader en lecture seule. |
+| `lab/nabu/build_arm64e_probe.py`, `lab/nabu/run_arm64e_probe.py` | PC avec ADB | Génère et exécute sur chaque cœur les tests EL0 des instructions PAC et des registres ID_AA64ISAR. |
+| `lab/results/nabu-macos27-pac.json` | Résultat matériel | Valeurs PAC lues et échecs PACIA observés sur les huit cœurs; numéro de série omis. |
 | `lab/nabu/nt36523_touch.py` | PC | Décode les rapports multitouch SPI du contrôleur Novatek NT36523; ce n'est pas encore son pilote macOS. |
 
 Captures des tests (OpenCore, Catalina Recovery et Utilities, Sonoma Recovery) : dossier `xiaomi-pad5-macos/` du dépôt `fedora-config`, branche `ccr-475fd790-4b2n9n`.
@@ -170,15 +174,14 @@ Le firmware Qualcomm démarre Linux en EL1 ; l'hyperviseur Qualcomm occupe EL2. 
 | macOS ARM sous TCG | orchard, Ambrosia | 16 Go de RAM hôte, guest 10 Go, GPU Vulkan. Code de recherche. |
 | macOS Intel + OpenCore sous TCG | OSX-KVM | Les essais consignés atteignent Recovery seulement; cette VM n'est pas une installation native. |
 
-## État du port natif Sonoma
+## Cible native actuelle : macOS 27.3
 
-1. Les essais Sonoma décrits ici utilisent QEMU/TCG et un CPU Intel émulé; ils ne démarrent pas macOS directement sur le Snapdragon.
-2. Aucun profil ou paquet macOS Sonoma prêt pour nabu n'a été trouvé.
-3. Le projet UniXNU-nabu vise iPadOS 17.7, pas macOS; il reste hors du périmètre de ce dépôt.
-4. Le seul port XNU public pour nabu trouvé vise l'espace utilisateur iPadOS 17.7; le Wi-Fi y est encore indiqué comme non implémenté.
-5. ADB a mesuré l'absence des indicateurs PAC `paca`/`pacg` sur les huit cœurs; cela constitue un verrou arm64e à étudier, pas encore une preuve tirée des registres CPU.
+- Les registres PAC ont été lus directement sur les huit cœurs; les champs PAC sont nuls et PACIA/AUTIA lèvent une instruction illégale.
+- Un correctif PAC de référence s'applique au XNU `12377.121.6` après son correctif JSCVT préalable. Il émule des instructions arm64e en mode utilisateur, mais n'a pas encore démontré de démarrage sur l'appareil.
+- Le kernelcache officiel Mac17,11 a été vérifié par SHA-256. Le réécriveur actuel s'arrête sur 643 formes nécessitant une relocalisation, 24 formes non prises en charge et 4 segments exécutables qu'il ne couvre pas.
+- Aucun noyau macOS 27.3 adapté à nabu n'a été compilé ni démarré. Aucun flash n'a été tenté.
 
-Voir [NATIF-SONOMA.md](NATIF-SONOMA.md) pour les mesures, la sauvegarde et les verrous de démarrage. macOS 27 Golden Gate est une autre cible; elle n'est pas installable sur nabu par simple remplacement de Sonoma.
+Voir [NATIF-MACOS-27.md](NATIF-MACOS-27.md) pour les mesures, les vérifications XNU et l'avancement. Les essais Sonoma en QEMU dans ce README et [NATIF-SONOMA.md](NATIF-SONOMA.md) restent historiques.
 
 ## macOS fluide sur la Pad 5
 

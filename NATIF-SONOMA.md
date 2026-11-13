@@ -1,6 +1,6 @@
-# macOS Sonoma natif sur Xiaomi Pad 5 (nabu)
+# Recherche historique : macOS Sonoma sur Xiaomi Pad 5 (nabu)
 
-**État vérifié le 13 novembre 2026 : aucune installation macOS native n'a été faite.** La cible demandée reste Sonoma, aujourd'hui en version 14.8.9. macOS 27 Golden Gate est une autre version et ne résout pas les dépendances matérielles du Snapdragon 860.
+**La cible du projet est maintenant macOS 27.3 (26C5035r)**; voir [NATIF-MACOS-27.md](NATIF-MACOS-27.md). Ce fichier conserve les essais antérieurs de Sonoma 14.8.9 et de macOS en VM comme historique de laboratoire. **Aucune installation macOS native n'a été faite.**
 
 ## État réel de la tablette
 
