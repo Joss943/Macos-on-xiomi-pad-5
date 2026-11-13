@@ -9,7 +9,8 @@
     "model": "21051182G",
     "product": "nabu_global",
     "bootloader_locked": true,
-    "flash_write_performed": false
+    "flash_write_performed": false,
+    "memory_total_kb": 5633852
   },
   "kernelcache": {
     "sha256": "d1003b5143ffd88439b4d45b6017f587171cfe6855660bed05370a2ea5db9fe9",
@@ -29,12 +30,21 @@
     "input_modified": false
   },
   "blocking_gaps": [
-    "The IPSW kernel is XNU 13432.60.57; the available UniXNU profile and local XNU patches target 12377.121.6.",
-    "No kernel adapted for nabu has been built or booted.",
-    "The measured device bootloader remains locked.",
-    "The macOS 27.3 touch ABI and QCA6390 Wi-Fi driver are not implemented for this device."
+    "The macOS 27.3 IPSW contains XNU 13432.60.57; the available UniXNU macOS profile uses XNU 12377.121.6.",
+    "UniXNU documents macOS 27 arm64e as requiring native PAC hardware; this tablet reports no PAC fields and traps PACIA on all eight cores.",
+    "A separate public nabu port boots an iPadOS 17.7.11-based XNU userland on a modified 12 GiB unit; it is not a macOS 27.3 build, and its display provider is still missing.",
+    "The exact macOS 27.3 static kernelcache rewrite still refuses: 643 relocations, 24 unsupported PAC forms, and four uncovered executable segments.",
+    "The tablet bootloader remains locked.",
+    "Touch input and QCA6390 Wi-Fi have not been validated with the macOS 27.3 kernel ABI."
   ],
-  "next_engineering_gate": "Obtain a buildable kernel path for the exact 27.3 target, close PAC rewrite/emulation coverage, then validate a non-installing boot path before any flash.",
-  "privacy": "ADB device serial omitted."
+  "next_engineering_gate": "Resolve the arm64e/native-PAC incompatibility and exact XNU 13432 source/build path, then forward-port and qualify nabu hardware drivers against macOS 27.3 before any install attempt.",
+  "privacy": "ADB device serial omitted.",
+  "related_nabu_port": {
+    "repository": "https://github.com/Lux12138/unixnu-nabu",
+    "inspected_revision": "39cff5f6b23df92831ce8839bc6a9a5387ba7e71",
+    "configured_target": "iPadOS 17.7.11 (21H461), iPad7,1",
+    "reported_state": "XNU reaches userland; SpringBoard and system daemons run, while an IOMobileFramebuffer provider is still missing.",
+    "hardware_difference": "The maintainer reports an upgraded 12 GiB unit; the connected target reports MemTotal 5633852 kB.",
+    "relevance": "Useful nabu boot and driver reference, but not evidence of macOS 27.3 on this 6 GiB-class tablet."
+  }
 }
-
