@@ -1,0 +1,184 @@
+# macOS sur Xiaomi Pad 5 (nabu, Snapdragon 860 / SM8150-AC)
+
+Méthode complète, scripts et résultats de tests (novembre 2026) pour faire tourner macOS sur la Xiaomi Pad 5, jusqu'à l'installation complète de **macOS Sonoma (14.6)** en machine virtuelle émulée.
+
+## Conclusion en 30 secondes
+
+| Objectif | Faisable ? | Comment |
+|---|---|---|
+| macOS **natif** (remplacer Android par macOS) | **Non, impossible** | macOS n'a ni noyau, ni pilotes, ni chaîne de démarrage pour un SoC Qualcomm. Aucun projet au monde ne l'a fait. |
+| Linux complet sur la Pad 5 (étape obligatoire) | **Oui, excellent** | Ubuntu 26.04 LTS communautaire, noyau 7.3.3, GPU Adreno 640 accéléré, Wi-Fi, Bluetooth, son, stylet, 120 Hz, dual-boot avec Android. |
+| macOS **en VM émulée** sur la Pad 5 | **Oui, lent** | QEMU + TCG (émulation x86-64, pas de KVM) + OpenCore. **Testé : Catalina et Sonoma atteignent l'installeur.** |
+| macOS **ARM (Apple Silicon) en VM** | **Pas aujourd'hui** | Exige KVM + Pointer Authentication ou 16 Go de RAM. La Pad 5 : 6 Go, ARMv8.2, pas de KVM. |
+| macOS **fluide au quotidien** sur l'écran de la Pad 5 | **Oui** | Déport d'écran vers un vrai Mac ou un Mac mini loué dans le cloud. |
+
+## Contenu du dépôt
+
+| Fichier | Où le lancer | Rôle |
+|---|---|---|
+| `01-pc-installer-ubuntu-nabu.sh` | PC (Linux/macOS) | Installe Ubuntu 26.04 sur la tablette (`single` ou `dual` avec Android). |
+| `02-tablette-macos-vm.sh` | Tablette, sous Ubuntu | Télécharge macOS chez Apple, prépare OpenCore, génère `run-macos.sh` réglé pour l'émulation. Choisit le CPU émulé selon la version (`sonoma`, `catalina`, …). |
+| `03-tablette-look-macos.sh` | Tablette | Habille Ubuntu en macOS (natif, accéléré GPU). Réversible. |
+| `04-tablette-mac-distant.sh` | Tablette | Remmina + RustDesk pour afficher un vrai Mac sur la Pad 5. |
+| `lab/get_recovery.sh` | Labo | Téléchargement d'une image de récupération Apple sans Mac (protocole Internet Recovery). |
+| `lab/ctl.py` | Labo | Pilotage d'une VM QEMU sans écran (captures, clavier, souris) via le moniteur. |
+
+Captures des tests (OpenCore, Catalina Recovery et Utilities, Sonoma Recovery) : dossier `xiaomi-pad5-macos/` du dépôt `fedora-config`, branche `ccr-475fd790-4b2n9n`.
+
+---
+
+## Méthode complète : macOS Sonoma installé sur la Pad 5
+
+### Étape 0. Prérequis
+
+- Xiaomi Pad 5 (nabu) **bootloader déverrouillé** (Mi Unlock, compte Xiaomi, attente d'environ 7 jours). Sauvegarde complète : le mode `single` efface Android.
+- PC avec `adb`/`fastboot`, câble USB-C, batterie > 50 %.
+- Pour Sonoma : la VM a besoin de **4 Go de RAM**. Sur une Pad 5 à 6 Go, Ubuntu doit rester léger pendant l'installation (fermer le navigateur, pas d'autres applications). Catalina se contente de 3 Go et reste le choix le plus confortable.
+- Wi-Fi fonctionnel sous Ubuntu : la réinstallation télécharge environ 12 Go depuis les serveurs Apple.
+
+### Étape 1. Ubuntu 26.04 sur la tablette (sur le PC)
+
+```bash
+chmod +x 01-pc-installer-ubuntu-nabu.sh
+./01-pc-installer-ubuntu-nabu.sh single   # Ubuntu seul (efface Android)
+./01-pc-installer-ubuntu-nabu.sh dual     # Android conservé (partitions linux/esp via TWRP mod-hybrid d'abord)
+```
+
+Équivalent manuel du mode `single` (tablette en Fastboot, Power + Volume bas) :
+
+```bash
+fastboot flash boot_ab images/alohauefi.img
+fastboot flash cust    images/esp.img
+fastboot flash userdata images/rootfs.img
+fastboot reboot
+```
+
+Premier démarrage : assistant GNOME, Wi-Fi, utilisateur. Puis `sudo apt update && sudo apt upgrade`.
+
+État matériel sous Ubuntu (release du 08/11/2026) : écran 120 Hz, tactile, stylet, GPU Vulkan/OpenGL, Wi-Fi, Bluetooth, son, batterie, veille, USB-C OTG : OK. Caméras : pas de pilote. DisplayPort USB-C : impossible (matériel).
+
+### Étape 2. Créer la VM Sonoma (sur la tablette)
+
+```bash
+chmod +x 02-tablette-macos-vm.sh
+./02-tablette-macos-vm.sh sonoma
+```
+
+Le script : installe `qemu-system-x86`, `dmg2img`, `zram-tools` (zram à 50 %) ; clone OSX-KVM (OpenCore + OVMF) ; télécharge `BaseSystem.dmg` de Sonoma chez Apple avec `fetch-macOS-v2.py -s sonoma` ; le convertit en `.img` ; crée un disque qcow2 de 64 Go ; génère `run-macos.sh` avec :
+
+- `-accel tcg,thread=multi` : les 4 gros cœurs A76 traduisent en parallèle ;
+- `-cpu Skylake-Client,-hle,-rtm,…,+pclmulqdq` : Sonoma exige AVX2 (Skylake) ; `+pclmulqdq` est **indispensable** en émulation (voir « Le piège ») ;
+- `-m 4096`, `q35`, `isa-applesmc`, OpenCore sur SATA, carte réseau Intel `e1000-82545em` (pilote Apple intégré), affichage `vmware-svga` 1024x768.
+
+### Étape 3. Démarrer l'installeur
+
+```bash
+~/macos-vm/OSX-KVM/run-macos.sh
+```
+
+1. Menu OpenCore : flèche droite jusqu'à **macOS Base System**, Entrée.
+2. Pomme et barre de progression. En émulation sur la Pad 5 : 15 à 40 minutes jusqu'à l'écran **Recovery** (Restore from Time Machine / Reinstall macOS Sonoma / Safari / Disk Utility).
+
+Mesuré en émulation pure sur un hôte x86 4 cœurs sans KVM : noyau Darwin 23.6.0 lancé à 1 min, espace utilisateur à 4 min, écran Recovery complet à 16 min. Sur la Pad 5 l'hôte est ARM (traduction x86 vers ARM64 en plus), compter 2 à 3 fois plus.
+
+### Étape 4. Formater le disque virtuel en APFS
+
+Deux façons.
+
+**Utilitaire de disque (souris)** : Disk Utility, Continue, menu Présentation, « Afficher tous les appareils », sélectionner **QEMU HARDDISK** 68,7 Go, Effacer, nom `macOS`, format **APFS**, schéma **Table de partition GUID**, Effacer, Terminé, fermer la fenêtre.
+
+**Terminal (clavier seul, plus fiable en émulation)** : menu Utilities, Terminal, puis
+
+```bash
+diskutil list physical            # repérer le disque QEMU HARDDISK de 68.7 GB (en général disk0)
+diskutil eraseDisk APFS macOS GPT disk0
+exit
+```
+
+### Étape 5. Réinstaller macOS Sonoma
+
+1. Dans la fenêtre Recovery : **Reinstall macOS Sonoma**, Continue, Agree, Agree.
+2. Choisir le volume **macOS**, Install.
+3. Téléchargement d'environ 12 Go depuis Apple (`swcdn.apple.com`, `swscan.apple.com`), puis copie sur le disque. La VM redémarre plusieurs fois. À chaque redémarrage, OpenCore propose **macOS Installer** puis, à la fin, **macOS** : laisser le choix par défaut ou sélectionner avec les flèches.
+4. Durée en émulation sur la Pad 5 : prévoir **4 à 8 heures**, tablette branchée, écran laissé allumé ou `HEADLESS=1` (voir ci-dessous).
+
+### Étape 6. Après l'installation
+
+```bash
+INSTALLED=1 ./run-macos.sh                  # retire le média d'installation
+HEADLESS=1 INSTALLED=1 ./run-macos.sh       # sans fenêtre, VNC sur localhost:5901
+RAM=3584 INSTALLED=1 ./run-macos.sh         # si Ubuntu swappe trop
+```
+
+Assistant de configuration macOS, compte local (pas de compte Apple nécessaire). Activer Partage > Session à distance pour `ssh -p 2222 utilisateur@localhost`.
+
+Attentes : Finder, Terminal et réglages répondent avec des secondes de latence. Pas d'accélération graphique (vidéo, Xcode, jeux : non). C'est une preuve de concept fonctionnelle, pas un poste de travail.
+
+---
+
+## Le piège qui bloque tout le monde en émulation
+
+Avec la ligne `-cpu Penryn` classique d'OSX-KVM, macOS reste figé sur la pomme, sans barre de progression. Le journal série du noyau (`-v debug=0x100 serial=3` dans les `boot-args` d'OpenCore, `-serial file:serial.log` côté QEMU) montre :
+
+```
+panic(cpu 0 caller ...): Kernel trap at ..., type 6=invalid opcode
+com.apple.kec.corecrypto : _gcm_init + 0x8e
+com.apple.kec.corecrypto : _fipspost_post_aes_gcm
+```
+
+Dès qu'AES-NI est annoncé, corecrypto utilise **PCLMULQDQ**, absente du modèle Penryn de QEMU. Sous KVM le vrai processeur exécute l'instruction quand même ; sous TCG l'émulateur la refuse. Correction : `+pclmulqdq` dans `-cpu`, ou un modèle qui l'inclut (`Skylake-Client`). Testé un cœur et quatre cœurs : identique.
+
+Deuxième piège : `-cpu max` fait caler `boot.efi` dans le chargement du `prelinkedkernel`. Rester sur Penryn (+pclmulqdq) ou Skylake-Client.
+
+Troisième point : activer le journal série d'OpenCore lui-même (`Misc > Debug > Target = 9`) a rendu l'écran noir dans nos tests. Laisser `Target = 0`, le `-v` du noyau suffit.
+
+## Résultats des tests (émulation pure, hôte x86 4 cœurs sans /dev/kvm)
+
+| Version | CPU émulé | Résultat |
+|---|---|---|
+| Catalina 10.15.7 | Penryn + pclmulqdq | OpenCore 40 s, noyau à 1 min, launchd à 2 min, « Launching the Language Chooser » à 4 min, fenêtre **macOS Utilities** (Reinstall macOS, Disk Utility) à 17 min. Lien Ethernet e1000 monté. |
+| Sonoma 14.6 | Skylake-Client | Noyau Darwin 23.6.0, espace utilisateur à 4 min, écran **Recovery** complet à 16 min, Terminal de récupération ouvert et commandes tapées. |
+| Catalina | Penryn (sans pclmulqdq) | Figé sur la pomme : panique corecrypto (voir ci-dessus). |
+| Catalina | `-cpu max` | Bloqué dans boot.efi. |
+
+Images téléchargées chez Apple et vérifiées bloc par bloc contre la liste de contrôle signée (Catalina 48/48, Sonoma 76/76).
+
+Où le test s'est arrêté : l'environnement de test n'avait pas d'accès Internet depuis la VM (réseau de laboratoire filtré, DNS indisponible pour le guest), donc « Reinstall macOS Sonoma » ne pouvait pas télécharger le système. Sur la Pad 5 sous Ubuntu, QEMU partage le Wi-Fi de la tablette en NAT et cette étape passe normalement.
+
+## Pourquoi pas plus rapide : pas de KVM sur un Snapdragon grand public
+
+Le firmware Qualcomm démarre Linux en EL1 ; l'hyperviseur Qualcomm occupe EL2. `/dev/kvm` n'existe donc pas, même avec un noyau compilé avec KVM. Le remplacement d'hyperviseur `qhypstub` n'existe que pour MSM8916/8939. Toute VM passe par TCG, 10 à 30 fois plus lent que le natif.
+
+## Pourquoi macOS Intel plutôt que macOS ARM
+
+| Voie | Projets | Pourquoi non sur la Pad 5 |
+|---|---|---|
+| macOS ARM (vmapple) sous KVM | vmapple-cli, reims-vgpu | KVM impossible ; exige aussi Pointer Authentication (ARMv8.3), le Kryo 485 est ARMv8.2. |
+| macOS ARM sous TCG | orchard, Ambrosia | 16 Go de RAM hôte, guest 10 Go, GPU Vulkan. Code de recherche. |
+| **macOS Intel + OpenCore sous TCG** | OSX-KVM | Mature, 3 à 4 Go de RAM, aucun Mac requis. **Voie retenue.** |
+
+## Pourquoi macOS natif est impossible
+
+1. XNU ne supporte que les puces Apple (et les PC Intel). Aucun pilote Adreno, WCN3990, UFS, écran, tactile.
+2. macOS ARM exige iBoot et des firmwares signés Apple ; la Pad 5 démarre via XBL/ABL Qualcomm et un UEFI communautaire.
+3. Code fermé : impossible d'écrire les pilotes manquants, contrairement à Linux ou Windows on ARM.
+4. OpenCore ne fonctionne que sur PC Intel/AMD. Rien d'équivalent pour un ARM non-Apple.
+
+## macOS fluide sur la Pad 5
+
+- `03-tablette-look-macos.sh` : thème WhiteSur, icônes, curseurs, police Inter, dock en bas, boutons à gauche. `revert` pour revenir à Ubuntu.
+- `04-tablette-mac-distant.sh` : Remmina (VNC vers le Partage d'écran d'un Mac en local) et RustDesk (à travers Internet). Sans Mac : Mac mini loué (Scaleway, MacStadium, MacinCloud, AWS EC2 Mac).
+
+## Note légale
+
+La licence macOS n'autorise son exécution que sur du matériel Apple, y compris en machine virtuelle. Les images sont téléchargées depuis les serveurs publics d'Apple sans contournement de DRM ; l'usage sur un appareil non-Apple relève de ta responsabilité.
+
+## Sources
+
+- Ubuntu 26.04 nabu : <https://github.com/Kumar-Jy/xiaomi-nabu-ubuntu> (release 08/11/2026) ; port d'origine : <https://github.com/TheMojoMan/Xiaomi-Nabu> ; wiki : <https://linux-on-nabu.gitbook.io/linux-for-mi-pad-5>
+- postmarketOS nabu : <https://pkgs.postmarketos.org/package/master/postmarketos/aarch64/device-xiaomi-nabu> ; Arch Linux ARM : <https://github.com/ppanzenboeck/nabu-arch-linux>
+- Windows on ARM sur Pad 5 : <https://renegade-project.tech/en/install/>
+- EL2/KVM sur Snapdragon : <https://xdaforums.com/t/booting-in-el2-for-kvm-use.4215531/> ; qhypstub : <https://github.com/msm8916-mainline/qhypstub>
+- OSX-KVM : <https://github.com/kholia/OSX-KVM> ; macrecovery (OpenCorePkg) : <https://github.com/acidanthera/OpenCorePkg>
+- macOS émulé sous TCG : <https://github.com/utmapp/UTM/discussions/4349>
+- macOS ARM en VM : <https://github.com/guoPhineas/vmapple-cli>, <https://github.com/yaelliethy/orchard>, <https://github.com/steelbrain/experiment-macOS-arm64-on-linux-x86>, <https://www.qemu.org/docs/master/system/arm/vmapple.html>
