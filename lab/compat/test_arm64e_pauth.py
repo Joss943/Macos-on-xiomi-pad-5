@@ -22,6 +22,20 @@ class PointerAuthLoweringTests(unittest.TestCase):
         self.assertEqual(PAUTH.lower(0xD50320FF), ("xpaclri", 0xD503201F))
         self.assertEqual(PAUTH.lower(0xD503211F), ("pacia1716", 0xD503201F))
 
+    def test_large_ldraa_offsets_expand_to_add_and_load(self):
+        sequence = PAUTH.lower_sequence(0xF8B3DD68)
+        self.assertEqual(sequence.mnemonic, "ldrab")
+        self.assertEqual(sequence.replacements, (0x91000000 | (2536 << 10) | (11 << 5) | 11, 0xF9400000 | (11 << 5) | 8))
+
+    def test_negative_ldraa_offset_uses_destination_as_temporary(self):
+        sequence = PAUTH.lower_sequence(0xF8F1F7FA)
+        self.assertEqual(sequence.mnemonic, "ldrab")
+        self.assertEqual(sequence.replacements, (0xD1000000 | (1800 << 10) | (31 << 5) | 26, 0xF9400000 | (26 << 5) | 26))
+
+    def test_ldraa_expansion_rejects_unsafe_register_alias(self):
+        with self.assertRaises(ValueError):
+            PAUTH.lower_sequence(0xF87AF7FF)
+
     def test_zero_modifier_forms_require_register_31(self):
         self.assertEqual(PAUTH.lower(0xDAC123F0), ("paciza", 0xD503201F))
         with self.assertRaises(ValueError):

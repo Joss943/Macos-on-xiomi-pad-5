@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Lower selected AArch64 pointer-authentication instructions for nabu.
 
-This module is one building block for an arm64e compatibility tool. It only
-maps one instruction to an ordinary AArch64 instruction; it does not locate
-code in Mach-O files, update signatures or make an OS image bootable. Unknown
-or non-equivalent cases fail closed.
+This module is one building block for an arm64e compatibility tool. It maps
+selected instructions to ordinary AArch64 words or short instruction
+sequences; it does not locate code in Mach-O files, relocate branches, update
+signatures or make an OS image bootable. Unknown or unsafe cases fail closed.
 
 The instruction encodings follow Arm's A-profile architecture reference
 manual. The lowering rules were cross-checked against UniXNU-zeta's BSD-2-
@@ -60,6 +60,11 @@ _BRANCHES = (
 class Lowering(NamedTuple):
     mnemonic: str
     replacement: int
+
+
+class SequenceLowering(NamedTuple):
+    mnemonic: str
+    replacements: tuple[int, ...]
 
 
 def lower(word: int) -> Lowering | None:
@@ -124,6 +129,59 @@ def lower(word: int) -> Lowering | None:
     return None
 
 
+def lower_sequence(word: int) -> SequenceLowering | None:
+    """Lower an instruction to one or more words when the semantics allow it.
+
+    The multiword LDRAA/LDRAB cases use the load destination as a temporary
+    only when it does not alias the base. A full Mach-O rewriter must still
+    relocate branches and metadata before these sequences can be installed.
+    """
+    try:
+        direct = lower(word)
+    except ValueError as error:
+        if word & 0xFF200400 != 0xF8200400 or "no exact LDR form" not in str(error):
+            raise
+        direct = None
+    if direct is not None:
+        return SequenceLowering(direct.mnemonic, (direct.replacement,))
+    if not 0 <= word <= 0xFFFFFFFF:
+        raise ValueError(f"instruction word outside uint32: {word!r}")
+    if word & 0xFF200400 != 0xF8200400:
+        return None
+
+    mnemonic = "ldrab" if word & 0x00800000 else "ldraa"
+    encoded_offset = (((word >> 22) & 1) << 9) | ((word >> 12) & 0x1FF)
+    offset = (encoded_offset - 1024 if encoded_offset & 0x200 else encoded_offset) * 8
+    writeback = (word >> 11) & 1
+    rt = word & 0x1F
+    rn = (word >> 5) & 0x1F
+
+    if not -4096 <= offset <= 4088 or offset % 8:
+        raise ValueError(f"{word:#010x}: invalid LDRAA/LDRAB immediate {offset}")
+    if writeback:
+        if rn == rt and rn != 31:
+            raise ValueError(f"{word:#010x}: pre-indexed load overlaps base and destination")
+        rd = rn
+        addend = abs(offset)
+    else:
+        if rt == 31 or rt == rn:
+            raise ValueError(f"{word:#010x}: no safe temporary register for expanded load")
+        rd = rt
+        addend = abs(offset)
+
+    if addend == 0:
+        raise ValueError(f"{word:#010x}: zero-offset load unexpectedly needs expansion")
+    shift = 1 if addend == 4096 else 0
+    immediate = addend >> (12 if shift else 0)
+    if immediate > 0xFFF:
+        raise ValueError(f"{word:#010x}: address adjustment does not fit ADD/SUB immediate")
+    opcode = 0xD1000000 if offset < 0 else 0x91000000  # SUB/ADD Xd, Xn, #imm
+    adjustment = opcode | (shift << 22) | (immediate << 10) | (rn << 5) | rd
+    load_base = rn if writeback else rt
+    load = 0xF9400000 | (load_base << 5) | rt  # LDR Xt, [Xn/SP]
+    return SequenceLowering(mnemonic, (adjustment, load))
+
+
 def _word(value: str) -> int:
     return int(value, 0)
 
@@ -135,15 +193,15 @@ def main() -> int:
     report = []
     try:
         for word in args.words:
-            result = lower(word)
+            result = lower_sequence(word)
             report.append({
                 "input": f"0x{word:08x}",
                 "instruction": result.mnemonic if result else None,
-                "replacement": f"0x{result.replacement:08x}" if result else None,
+                "replacements": [f"0x{replacement:08x}" for replacement in result.replacements] if result else [],
             })
     except ValueError as error:
         parser.error(str(error))
-    print(json.dumps({"schema": "nabu-arm64e-lowering-v1", "hardware_tested": False, "words": report}, indent=2))
+    print(json.dumps({"schema": "nabu-arm64e-lowering-v2", "hardware_tested": False, "words": report}, indent=2))
     return 0
 
 

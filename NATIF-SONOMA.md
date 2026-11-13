@@ -14,7 +14,9 @@ L'inventaire réseau Android montre `wlan0` et `wlan1` sous `platform/soc/188000
 
 `lab/compat/inspect_macho_arch.py` inventorie les tranches Mach-O d'un volume monté et distingue `arm64` de `arm64e`. Il lit les en-têtes uniquement et écrit un rapport JSON sans modifier le volume.
 
-`lab/compat/arm64e_pauth.py` traduit plusieurs formes PAC vers des instructions compatibles sans PAC, dont `PACIASP/PACIBSP/AUTIASP/AUTIBSP` et `XPACLRI`. Les formes sans traduction exacte lèvent une erreur. C'est un module de traduction d'instructions, pas encore un réécrivain de noyau : il ne trouve pas les frontières de fonctions, ne traite pas toutes les opérations PAC ni les ABI `arm64e`, et ne produit pas une image de démarrage.
+`lab/compat/arm64e_pauth.py` traduit plusieurs formes PAC vers des instructions compatibles sans PAC, dont `PACIASP/PACIBSP/AUTIASP/AUTIBSP`, `XPACLRI` et des chargements `LDRAA/LDRAB` à grands offsets. Certains chargements deviennent deux instructions. Les formes qui exigent un registre temporaire sûr ou un comportement précis en cas d'alias restent refusées. Ce module ne relocalise pas les branches et ne produit pas une image de démarrage.
+
+`lab/compat/scan_arm64e_pauth.py` suit les 362 membres du fileset noyau et parcourt les sections marquées comme code sans modifier les binaires. L'analyse du `kernelcache.mac15j` Sonoma a trouvé 887 368 mots candidats connus : 144 demandent une séquence de deux instructions et 7 sont refusés pour préserver les registres en alias. Ce décompte brut demande encore un désassemblage et une revue des offsets avant tout patch.
 
 `lab/compat/xar_extract.py` lit les archives XAR Apple, contrôle le hash du TOC comprimé et les hashes des membres, puis extrait un membre demandé sans écraser de fichier existant. `lab/compat/pbzx_extract.py` décode les blocs XZ ou bruts du flux `pbzx` de l'installateur.
 
@@ -26,6 +28,7 @@ Commandes de laboratoire:
 python -m unittest discover -s lab\compat -p 'test_*.py' -v
 python lab\compat\inspect_macho_arch.py --root <volume-Sonoma-monte> --output <rapport.json>
 python lab\compat\arm64e_pauth.py 0xdac10041 0xd61f089f
+python lab\compat\scan_arm64e_pauth.py kernelcache.mac15j.decoded --output scan.json
 python lab\compat\xar_extract.py InstallAssistant.pkg --list
 python lab\compat\xar_extract.py InstallAssistant.pkg --extract Payload --output Payload
 python lab\compat\pbzx_extract.py Payload InstallAssistant.cpio
@@ -51,7 +54,7 @@ Cette copie n'inclut pas les partitions Android (boot, vendor, firmware, userdat
 
 ## Prochaine étape technique
 
-1. Cartographier les instructions PAC et les dépendances `arm64e` dans le noyau et les composants extraits; le décodeur d'instructions est le premier outil de cette étape.
+1. Désassembler et revoir les candidats PAC, puis concevoir un réécrivain Mach-O qui gère les séquences plus longues et les références de code.
 2. Construire un XNU Darwin 23 adapté au SM8150, puis qualifier les ABI et pilotes de stockage, écran et tactile.
 3. Implémenter le pilote WCN3998 de nabu et intégrer l'interface réseau attendue par macOS.
 4. Produire l'image, démarrer depuis l'ESP sans effacer Android, puis qualifier le tactile et le Wi-Fi avant de préparer une installation persistante.
