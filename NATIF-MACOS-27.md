@@ -45,6 +45,14 @@ La portée reste insuffisante pour le kernelcache Mac17,11 mesuré ici : 370 mem
 
 Mesures publiées : [`lab/results/nabu-macos27-pacemu-reference.json`](lab/results/nabu-macos27-pacemu-reference.json) et [`lab/results/macos27-kernelcache-pac-scan-summary.json`](lab/results/macos27-kernelcache-pac-scan-summary.json). Aucun fichier Apple n'a été inclus dans ce dépôt.
 
+## Pilote tactile et Wi-Fi nabu
+
+Le dépôt matériel public [UniXNU-nabu](https://github.com/zzweiqing/UniXNU-nabu) rapporte un écran interactif et un pilote NT36523 tactile fonctionnel sur nabu, avec iPadOS 17.7. Il indique que le Wi-Fi n'est pas implémenté. Ce dépôt sert ici de référence de carte uniquement; la cible reste macOS 27.3.
+
+Le pilote tactile de référence est lié à `IOHIDFamily` du build 21H16 et à une table `IOHIDDevice` de 207 entrées. Sur le kernelcache macOS 27.3, l'étendue entre les symboles de la vtable et de la métaclasse est de 2 696 octets : 335 cellules de 8 octets après l'en-tête ABI de 16 octets. Le décodage du `LC_DYLD_CHAINED_FIXUPS` du kernelcache racine confirme 334 entrées de fonction authentifiées avec la clé IA et une dernière cellule nulle d'alignement. En rapprochant les pointeurs des symboles de tous les 370 membres Mach-O, les 334 fonctions ont un symbole exact. `handleStart` est au slot 272 et `handleReport` au slot 285, alors que le binding iPadOS 17.7 les place aux slots 168/181. Le binding ancien ne peut donc pas être réutilisé; il faut reconstruire le sous-classement macOS avec cette ABI et traiter ses pointeurs PAC.
+
+L'outil [`lab/compat/inspect_iohid_vtable.py`](lab/compat/inspect_iohid_vtable.py) décode les chaînes de pointeurs du kernelcache sans le modifier. Son test synthétique couvre les pointeurs format 8 authentifiés. Le résultat [`lab/results/macos27-iohid-vtable-report.json`](lab/results/macos27-iohid-vtable-report.json) ne contient que des adresses, des noms de symboles et des métadonnées de fixup; aucun code Apple n'est copié.
+
 ## Travail restant vers le démarrage natif
 
 1. Confirmer le support PAC avec les registres architecturaux et les tests EL1/EL0 de UniXNU sur les huit cœurs. Si le processeur ne possède pas PAC, il faut d'abord concevoir et valider une voie de compatibilité arm64e complète ; des pilotes Wi-Fi/tactile ne peuvent pas résoudre ce verrou CPU.
