@@ -16,6 +16,8 @@ L'inventaire réseau Android montre `wlan0` et `wlan1` sous `platform/soc/188000
 
 `lab/compat/arm64e_pauth.py` contient les premières traductions d'instructions PAC vers des instructions AArch64 ordinaires. Les formes à traduction exacte sont traitées; les formes non prises en charge lèvent une erreur. La réécriture d'un système, la régénération des signatures, les pilotes macOS et la production d'une image de démarrage demandent encore leur propre implémentation.
 
+`lab/compat/xar_extract.py` lit les archives XAR Apple, contrôle le hash du TOC comprimé et les hashes des membres, puis extrait un membre demandé sans écraser de fichier existant. `lab/compat/pbzx_extract.py` décode les blocs XZ ou bruts du flux `pbzx` de l'installateur.
+
 L'installateur Apple officiel préparé pour examiner les binaires est Sonoma `14.8.9` / build `23J631`; les métadonnées du paquet confirment l'XNU Sonoma `xnu-10063.141.1`. Le paquet système reste sur le PC et ne fait pas partie du dépôt.
 
 Commandes de laboratoire:
@@ -24,7 +26,12 @@ Commandes de laboratoire:
 python -m unittest discover -s lab\compat -p 'test_*.py' -v
 python lab\compat\inspect_macho_arch.py --root <volume-Sonoma-monte> --output <rapport.json>
 python lab\compat\arm64e_pauth.py 0xdac10041 0xd61f089f
+python lab\compat\xar_extract.py InstallAssistant.pkg --list
+python lab\compat\xar_extract.py InstallAssistant.pkg --extract Payload --output Payload
+python lab\compat\pbzx_extract.py Payload InstallAssistant.cpio
 ```
+
+L'installateur officiel Apple Sonoma 14.8.9 (build 23J631) est en cours de téléchargement local pour l'analyse; il n'est pas inclus dans GitHub. La TOC XAR et le membre `PackageInfo` sont déjà validés contre leurs SHA-1 : 430 octets stockés donnent 918 octets extraits. Le membre `Payload` (11 651 320 octets) s'est décodé en 3 blocs `pbzx`, donnant un cpio ODC de 42 607 616 octets (SHA-256 `2d8f442fe563ff136578d221354d5d85c87d2459f78f525e132d04c29785069c`). Dans l'application d'installation seulement, l'inventaire compte 24 Mach-O, dont 15 tranches `arm64e`, 9 `arm64` et aucune erreur. Ce relevé ne couvre pas le noyau ni les pilotes du système; l'image `SharedSupport.dmg` reste à analyser.
 
 ## Pourquoi aucun flash Sonoma n'est lancé
 
@@ -60,4 +67,6 @@ Cette copie n'inclut pas les partitions Android (boot, vendor, firmware, userdat
 - Linux ath10k SNOC, référence indépendante de bus et firmware : <https://github.com/torvalds/linux/blob/master/drivers/net/wireless/ath/ath10k/snoc.c>
 - UniXNU-zeta, recherche de traduction arm64e pour SoC sans PAC : <https://github.com/none24smu/UniXNU-zeta>
 - Port macOS Snapdragon X2, architecture spécifique : <https://github.com/Snapintosh/Snapintosh>
+- Format XAR, dépôt et spécification communautaire du projet `mackyle/xar` : <https://github.com/mackyle/xar/wiki/xarformat>
+- Format PBZX et cadrage d'une implémentation libarchive : <https://github.com/libarchive/libarchive/issues/2849>
 

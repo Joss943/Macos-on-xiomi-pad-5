@@ -24,6 +24,10 @@ Le bootloader de la tablette était verrouillé lors de la dernière lecture ADB
 | `04-tablette-mac-distant.sh` | Tablette | Remmina + RustDesk pour afficher un vrai Mac sur la Pad 5. |
 | `lab/get_recovery.sh` | Labo | Téléchargement d'une image de récupération Apple sans Mac (protocole Internet Recovery). |
 | `lab/ctl.py` | Labo | Pilotage d'une VM QEMU sans écran (captures, clavier, souris) via le moniteur. |
+| `lab/compat/xar_extract.py` | PC | Lecture/extraction XAR contrôlée avec vérification des checksums du TOC et des membres. |
+| `lab/compat/pbzx_extract.py` | PC | Décodage des blocs XZ/raw `pbzx` utilisés dans les paquets Apple. |
+| `lab/compat/inspect_macho_arch.py` | PC | Inventaire des tranches Mach-O `arm64` et `arm64e`. |
+| `lab/compat/arm64e_pauth.py` | PC | Première table de traductions PAC/PAUTH; formes inconnues refusées. |
 
 Captures des tests (OpenCore, Catalina Recovery et Utilities, Sonoma Recovery) : dossier `xiaomi-pad5-macos/` du dépôt `fedora-config`, branche `ccr-475fd790-4b2n9n`.
 
