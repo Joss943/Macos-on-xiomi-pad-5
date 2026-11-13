@@ -7,6 +7,11 @@
 The module in this repository is independently formatted and includes its
 own fail-closed error handling.
 
+`patches/xnu-12377/0001-accept-authenticated-fixups-without-pac.patch` is a
+small source patch for Apple's XNU 12377.121.6 `dyld_kernel_fixups.h`. XNU is
+licensed under Apple Public Source License 2.0; the patch contains no Apple
+source file. It changes only the non-PAC authenticated-fixup failure path.
+
 Copyright (c) 2026, UniXNU contributors. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

@@ -40,6 +40,7 @@ Le bootloader est toujours verrouillé (`ro.boot.flash.locked=1`). Aucune partit
 | `lab/compat/scan_kernelcache_fixups.py` | Analyse PAC 27.3 | Parcourt les chaînes format 8 et résout les cibles niveau 0 sans réécrire le kernelcache. |
 | `lab/results/macos27-kernelcache-fixup-summary.json` | Résultat des fixups 27.3 | 898 429 pointeurs authentifiés sur 1 017 384 entrées; les clés IA et DA sont comptées par segment. |
 | `lab/results/macos27-kernelcache-fixup-resolution.json` | Résolution des fixups 27.3 | Les 1 017 384 cibles sont résolues au niveau 0 et retombent dans les segments racine; aucun pointeur n'est réécrit. |
+| `lab/compat/patches/xnu-12377/0001-accept-authenticated-fixups-without-pac.patch` | XNU 27.3 / nabu | Le chemin XNU sans PAC stocke les VA résolues comme pointeurs ordinaires au lieu d'arrêter sur les 898 429 fixups authentifiés; il ne simule pas les instructions PAC. Le patch n'a pas encore été compilé ni démarré. |
 | `lab/nabu/nt36523_touch.py` | PC | Décode les rapports multitouch SPI du contrôleur Novatek NT36523; ce n'est pas encore son pilote macOS. |
 
 Captures des tests (OpenCore, Catalina Recovery et Utilities, Sonoma Recovery) : dossier `xiaomi-pad5-macos/` du dépôt `fedora-config`, branche `ccr-475fd790-4b2n9n`.

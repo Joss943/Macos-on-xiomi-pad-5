@@ -1,0 +1,21 @@
+diff --git a/osfmk/mach/dyld_kernel_fixups.h b/osfmk/mach/dyld_kernel_fixups.h
+--- a/osfmk/mach/dyld_kernel_fixups.h
++++ b/osfmk/mach/dyld_kernel_fixups.h
+@@ -127,11 +127,12 @@
+ #if HAS_APPLE_PAC
+ 		if (fixupLoc->fixup64.isAuth) {
+ 			slidValue = sign_pointer(fixupLoc->fixup64, fixupLoc, slidValue);
+ 		}
+ #else
+-		if (fixupLoc->fixup64.isAuth) {
+-			dyldLogFunc("Unexpected authenticated fixup\n");
+-			*stop = 1;
+-			return;
+-		}
++		/*
++		 * On a non-PAC ARM64 build, resolving the chain still yields the target
++		 * virtual address. Keep that address as an ordinary pointer. This only
++		 * removes the fixup-time abort; it does not emulate PAC instructions or
++		 * make arm64e kernel code executable on a CPU without PAC.
++		 */
+ #endif // HAS_APPLE_PAC
