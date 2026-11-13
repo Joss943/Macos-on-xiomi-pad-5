@@ -1,6 +1,6 @@
 # macOS 27.3 sur Xiaomi Pad 5 (nabu, Snapdragon 860 / SM8150)
 
-**Cible unique : démarrer macOS 27.3 (26C5035r) nativement sur la Pad 5.** Le profil UniXNU correspondant est arm64e et exige le PAC matériel. Sur les huit cœurs Android, les registres PAC lus directement valent zéro et les instructions PAC testées lèvent une instruction illégale. Aucun build natif ou flash macOS n'a été effectué. Voir [NATIF-MACOS-27.md](NATIF-MACOS-27.md) pour les mesures et l'avancement de la voie d'émulation.
+**Cible unique : démarrer macOS 27.3 (26C5035r) nativement sur la Pad 5.** Le noyau de l'IPSW est XNU 13432.60.57, mais le profil source UniXNU utilisé ici pointe sur XNU 12377.121.6. La Pad 5 ne dispose pas du PAC matériel mesuré requis par arm64e. Aucun noyau macOS 27.3 adapté ni flash n'a été validé. Voir [NATIF-MACOS-27.md](NATIF-MACOS-27.md) pour les mesures et les blocages.
 
 Le bootloader est toujours verrouillé (`ro.boot.flash.locked=1`). Aucune partition n'a été modifiée. Les essais Sonoma via QEMU décrits dans [NATIF-SONOMA.md](NATIF-SONOMA.md) sont historiques et ne constituent pas un port natif.
 
@@ -8,7 +8,7 @@ Le bootloader est toujours verrouillé (`ro.boot.flash.locked=1`). Aucune partit
 
 | Objectif | Faisable ? | Comment |
 |---|---|---|
-| macOS 27.3 **natif** sur nabu | **Non démarré; compatibilité PAC à intégrer** | Le profil macOS 27.3 cible arm64e. Une piste d'émulation PAC existe pour le même XNU, mais ni le kernelcache Mac ni un démarrage nabu ne sont encore validés. Voir [NATIF-MACOS-27.md](NATIF-MACOS-27.md). |
+| macOS 27.3 **natif** sur nabu | **Non démarré; noyau source non concordant** | L'IPSW utilise XNU 13432.60.57; le profil et les patches disponibles ciblent XNU 12377.121.6. Le PAC, les pilotes, Wi-Fi et le démarrage restent non validés. Voir [NATIF-MACOS-27.md](NATIF-MACOS-27.md). |
 | Linux sur la Pad 5 (référence matérielle seulement) | **Oui** | Un port communautaire Ubuntu documente les pilotes et l'état du matériel nabu; ce n'est pas l'objectif d'installation de ce dépôt. |
 | macOS **en VM émulée** | **Recovery testée; installation inachevée** | QEMU + TCG + OpenCore. Catalina atteint Utilities et Sonoma atteint Recovery dans le labo x86-64; le téléchargement/install n'a pas été terminé et aucun test sur Pad 5 n'est consigné. |
 | macOS **ARM (Apple Silicon) en VM** | **Pas validé** | La Pad 5 expose 6 Go de RAM et n'expose pas `paca`/`pacg` dans Android; aucune VM Apple Silicon n'a été validée sur elle. |

@@ -2,6 +2,10 @@
 
 La cible demandée est **macOS 27.3, build 26C5035r**. Le profil public UniXNU pour macOS 27.3 cible `Mac17,11` et compile XNU en **arm64e**. Il exige le Pointer Authentication matériel (PAC) sur chaque cœur. Le dépôt UniXNU indique que les appareils sans PAC restent sur les profils arm64, jusqu'à iPadOS 17 pour cette génération. Références : [profil macOS](https://unixnu.com/porting/macos), [prérequis arm64e](https://unixnu.com/porting/arm64e).
 
+## Écart de version du noyau
+
+L'IPSW macOS 27.3 observé rapporte le noyau Darwin `27.3.0` / XNU `13432.60.57`. Le profil UniXNU disponible ici compile à partir de XNU `12377.121.6` (Darwin `25.5.0`). Le dépôt officiel Apple `apple-oss-distributions/xnu` ne publie pas encore de tag `xnu-13432` au 13 novembre 2026. Les patches PAC de ce dépôt ne modifient donc pas le noyau officiel macOS 27.3 : ils ne sont vérifiés que contre la base 12377. Il faudra porter les changements sur les sources 13432 si Apple les publie, ou démontrer une réécriture sûre du kernelcache exact avant tout essai.
+
 ## Mesure réelle sur la tablette — 13 novembre 2026
 
 La Pad 5 était connectée en ADB. La collecte ci-dessous n'a lu que les propriétés Android, `/proc/cpuinfo` et les fichiers d'identification CPU déjà exposés en lecture seule par Linux. Elle n'a écrit aucune partition.
@@ -30,14 +34,15 @@ Reproduire la lecture depuis un PC équipé d'ADB :
 
 ## État d'avancement et blocages
 
-* **Aucun port macOS 27.3 nabu prêt à construire ou à installer n'est actuellement présent dans ce dépôt.** Le profil UniXNU macOS réclame aussi l'IPSW `UniversalMac_27.3_26C5035r_Restore.ipsw`, son kernelcache et ses trust caches, ainsi qu'un build sur macOS avec Xcode et une intégration de pilotes adaptée à la carte.
-* Le dépôt public nabu référencé par UniXNU cible iPadOS 17.7, pas macOS 27.3. Le profil macOS 27.3 n'est pas un simple changement de version : il sélectionne arm64e, des interfaces Darwin 26 et un kernelcache Mac17,11.
+* **Aucun port macOS 27.3 nabu prêt à construire ou à installer n'est actuellement présent dans ce dépôt.** L'IPSW exact est déjà présent dans le labo local, mais il n'existe pas ici de build reproductible du noyau 13432 avec les adaptations nabu.
+* Le dépôt public nabu référencé ici cible iPadOS 17.7 (21H16), pas macOS 27.3. Son tactile est lié à l'ABI IOHID 21H16 et son journal de portage laisse le Wi-Fi non implémenté. Ni ce pilote ni son noyau ne prouvent le fonctionnement sous macOS 27.3.
+* Le profil macOS fourni sélectionne un noyau source 12377 alors que l'IPSW demandé embarque XNU 13432.60.57. Le correctif d'architecture ARM64 ajouté pour nabu ne résout pas cet écart de noyau ni l'ABI des pilotes.
 * Le bootloader de cette tablette est encore verrouillé. Aucun binaire de démarrage macOS 27.3 pour nabu n'a été produit ni validé ; il n'y a donc rien de sûr à flasher à ce stade.
 * Le dépôt contient un abaisseur expérimental de quelques instructions arm64e vers ARM64, mais il ne couvre pas toute l'ABI arm64e, ne relocalise pas les branches, ne reconstruit pas les caches dynamiques et ne rend pas un système démarrable. Il ne suffit pas à contourner le prérequis PAC de macOS 27.3.
 
 ## Émulation PAC : piste vérifiée sur la version XNU ciblée
 
-Le profil macOS 27.3 épingle XNU `12377.121.6` (`ac9718fb1af618d5ce8678d0dc6e8a58f252216f`). Le patch [`0002-emulate-pauth-el0-el1-without-pac.patch`](lab/compat/patches/xnu-12377/0002-emulate-pauth-el0-el1-without-pac.patch) ajoute un émulateur des instructions PAC non-HINT au chemin d'instruction illégale de XNU. Il est activé par `nabu-pauthemu=1` et traite EL0 et EL1, dont les chargements `LDRAA/LDRAB` qui bloquaient une réécriture de largeur fixe. La série complète s'applique proprement à la révision XNU épinglée. Le modèle conserve des pointeurs VA non signés et n'offre aucune protection PAC.
+Le profil de travail épingle XNU `12377.121.6` (`ac9718fb1af618d5ce8678d0dc6e8a58f252216f`), qui n'est pas le XNU livré avec macOS 27.3. Le patch [`0002-emulate-pauth-el0-el1-without-pac.patch`](lab/compat/patches/xnu-12377/0002-emulate-pauth-el0-el1-without-pac.patch) ajoute un émulateur des instructions PAC non-HINT au chemin d'instruction illégale de cette base XNU. Il est activé par `nabu-pauthemu=1` et traite EL0 et EL1, dont les chargements `LDRAA/LDRAB` qui bloquaient une réécriture de largeur fixe. La série s'applique proprement à la révision 12377; elle n'a pas encore été portée sur 13432. Le modèle conserve des pointeurs VA non signés et n'offre aucune protection PAC.
 
 L'émulateur est encore expérimental : seul le modèle C portable a été compilé sur l'hôte. Le patch XNU, son chemin EL0/EL1 et son intégration au profil macOS 27.3 ne sont pas compilés ni validés par un démarrage.
 
