@@ -10,4 +10,4 @@
 0010-macos27-darwin26-kpis-and-abi-from-unixnu.patch
 0011-nabu-vtimer-intid-from-device-tree.patch
 0012-nabu-physmap-twig-alignment-slack.patch
-0013-nabu-cpu-start-with-processor-boot.patch
+0013-nabu-cpus-booted-at-registration.patch

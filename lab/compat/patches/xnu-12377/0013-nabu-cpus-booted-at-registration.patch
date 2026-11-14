@@ -1,0 +1,33 @@
+From: nabu port
+Subject: [PATCH 0013] nabu: processors are booted at registration (XNU 12377)
+
+The full macOS 27.3 kernelcache under QEMU (series 0001-0012) stopped in
+NabuCPU::startAll with "NABU CPU: processor_start cpu=0 failed: 5":
+processor_start() is now processor_start_from_kext(), a no-op returning
+KERN_FAILURE. Calling processor_boot() instead then panicked "processor 0
+already booted": without USE_APPLEARMSMP, ml_processor_register() boots the
+processor itself (osfmk/arm64/machine_routines.c). startAll now only waits
+for each CPU to report started (nabuStarted, set by initCPU) and its SGI.
+---
+diff --git a/iokit/Kernel/arm/NabuCPU.cpp b/iokit/Kernel/arm/NabuCPU.cpp
+index 76ed7b2..acc9a5c 100644
+--- a/iokit/Kernel/arm/NabuCPU.cpp
++++ b/iokit/Kernel/arm/NabuCPU.cpp
+@@ -145,10 +145,13 @@ NabuCPU::startAll(void *arg __unused, wait_result_t result __unused)
+ 		if (cpu == NULL) {
+ 			panic("NABU CPU: missing nub for logical CPU %u", cpu_id);
+ 		}
+-		kern_return_t kr = processor_start(cpu->machProcessor);
+-		if (kr != KERN_SUCCESS) {
+-			panic("NABU CPU: processor_start cpu=%u failed: %d", cpu_id, kr);
+-		}
++		/*
++		 * XNU 12377 without USE_APPLEARMSMP boots each processor from
++		 * ml_processor_register() (osfmk/arm64/machine_routines.c), i.e. in
++		 * NabuCPU::start; processor_start() is a kext no-op returning
++		 * KERN_FAILURE and a second processor_boot() panics "already booted".
++		 * Only wait here for the CPU to report itself started.
++		 */
+ 		nanoseconds_to_deadline(5 * NSEC_PER_SEC, &deadline);
+ 		while (__atomic_load_n(&cpu->nabuStarted, __ATOMIC_ACQUIRE) == 0 ||
+ 		    !nabu_cpu_signal_is_enabled(cpu_id)) {
