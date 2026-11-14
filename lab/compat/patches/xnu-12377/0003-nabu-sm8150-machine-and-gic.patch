@@ -275,6 +275,58 @@ index 864fb208..4690ba39 100644
  	// Clear any spurious IPIs received during CPU shutdown
  	mov     x9, #0x1
  	msr     S3_5_C15_C1_1, x9
+diff --git a/osfmk/arm64/nabu_platform_stubs.c b/osfmk/arm64/nabu_platform_stubs.c
+new file mode 100644
+index 00000000..0d3281e4
+--- /dev/null
++++ b/osfmk/arm64/nabu_platform_stubs.c
+@@ -0,0 +1,46 @@
++/*
++ * NABU (Xiaomi Pad 5, SM8150) replacements for routines Apple ships only in
++ * the unpublished per-SoC kernel archive. Each one is the behaviour a
++ * non-Apple ARMv8.2 core without PPL needs; none touches an Apple register.
++ */
++#if defined(ARM64_BOARD_CONFIG_NABU)
++
++#include <kern/ast.h>
++#include <arm/machine_routines.h>
++#include <arm/pmap.h>
++
++extern void CleanPoC_DcacheRegion_Force(vm_offset_t va, size_t length);
++
++/* "nohid": the Apple variant skips a HID-register workaround. Kryo has none. */
++void
++CleanPoC_DcacheRegion_Force_nopreempt_nohid(vm_offset_t va, size_t length)
++{
++	CleanPoC_DcacheRegion_Force(va, length);
++}
++
++/* No Apple fuses; report a production part so no engineering-sample paths run. */
++boolean_t
++ml_device_is_prod_fused(void)
++{
++	return TRUE;
++}
++
++/* The monitor is the PPL, which nabu does not have (XNU_MONITOR is 0). */
++void
++ml_enable_monitor(void)
++{
++}
++
++#if SCHED_HYGIENE_DEBUG && (DEBUG || DEVELOPMENT)
++/* Apple's version also records scheduler-hygiene data; the AST check is the contract. */
++#undef pmap_pending_preemption
++bool
++pmap_pending_preemption(void)
++{
++	return _pmap_pending_preemption_real();
++}
++#endif
++
++#else
++extern int nabu_platform_stubs_unused;
++#endif /* ARM64_BOARD_CONFIG_NABU */
 diff --git a/osfmk/arm64/proc_reg.h b/osfmk/arm64/proc_reg.h
 index f4d148bd..98aac2cf 100644
 --- a/osfmk/arm64/proc_reg.h
@@ -398,7 +450,7 @@ index 6aa6fe46..12974cea 100644
  #if (!CONFIG_KERNEL_INTEGRITY || (CONFIG_KERNEL_INTEGRITY && !defined(KERNEL_INTEGRITY_WT)))
  	/* Watchtower
 diff --git a/osfmk/conf/files.arm64 b/osfmk/conf/files.arm64
-index 878b5154..05e858ac 100644
+index 878b5154..640b0392 100644
 --- a/osfmk/conf/files.arm64
 +++ b/osfmk/conf/files.arm64
 @@ -21,7 +21,7 @@ osfmk/arm64/sptm/pmap/pmap_iommu.c	optional nos_arm_asm config_sptm
@@ -425,6 +477,14 @@ index 878b5154..05e858ac 100644
  osfmk/arm64/bcopy.s standard
  osfmk/arm64/bzero.s standard
  osfmk/arm/caches.c		standard
+@@ -81,6 +81,7 @@ osfmk/arm64/strncmp.s   standard
+ 
+ osfmk/arm/model_dep.c		standard
+ osfmk/arm64/pcb.c		optional nos_arm_asm
++osfmk/arm64/nabu_platform_stubs.c	standard
+ osfmk/arm/rtclock.c		standard
+ osfmk/arm64/status.c		standard
+ osfmk/arm/status_shared.c	standard
 diff --git a/osfmk/kern/exclaves.c b/osfmk/kern/exclaves.c
 index 6247d298..8bd6c74f 100644
 --- a/osfmk/kern/exclaves.c
