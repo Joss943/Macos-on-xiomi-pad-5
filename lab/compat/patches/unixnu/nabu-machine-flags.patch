@@ -1,0 +1,18 @@
+# Base: UniXNU/UniXNU revision 7d85ede80092050f4d87f72ac7229bb605ce07fb.
+# The nabu config fragment supplies CONFIG_XNU_ARM64_MACHINE_FLAGS.
+diff --git a/scripts/build-xnu-4k-baseline.sh b/scripts/build-xnu-4k-baseline.sh
+index 394299b..13ff19d 100755
+--- a/scripts/build-xnu-4k-baseline.sh
++++ b/scripts/build-xnu-4k-baseline.sh
+@@ -160,6 +160,11 @@ if [ "$(uname -s)" = Linux ]; then
+ fi
+ # The baseline builds the kernel; `all` also checks the Apple kext export ABI.
+ EXTRA_MAKE_ARGS=()
++# Device profiles may replace the reference board flags while keeping the
++# historical BCM2837 output-directory name used by this build script's recipes.
++if [ -n "${XNU_ARM64_MACHINE_FLAGS:-}" ]; then
++  EXTRA_MAKE_ARGS+=("MACHINE_FLAGS_ARM64_BCM2837=$XNU_ARM64_MACHINE_FLAGS")
++fi
+ # A fileset boot replaces com.apple.kernel inside a kernel collection: the
+ # native executable must carry chained fixups and split-segment records.
+ EXTRA_MAKE_ARGS+=("XNU_KERNEL_CHAINED_FIXUPS=${XNU_KERNEL_CHAINED_FIXUPS:-0}")

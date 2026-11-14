@@ -1,0 +1,26 @@
+{
+  "schema": "macos27-kernelcache-pac-scan-summary-v1",
+  "target": "macos-27.3-26C5035r",
+  "product": "Mac17,11",
+  "kernelcache_sha256": "d1003b5143ffd88439b4d45b6017f587171cfe6855660bed05370a2ea5db9fe9",
+  "scan": {
+    "fileset_members": 370,
+    "instruction_words": 18650258,
+    "recognized_pac_candidates": 973834,
+    "forms_requiring_multiword_lowering": 643,
+    "unsupported_forms": 24,
+    "uncovered_executable_segments": [
+      "root:__TEXT_BOOT_EXEC",
+      "root:__TEXT_EXEC",
+      "com.apple.kernel:__KDP",
+      "com.apple.kernel:__LAST"
+    ],
+    "input_modified": false,
+    "rewritten_image_produced": false
+  },
+  "notes": [
+    "PAC candidate counts are instruction-pattern matches in executable sections; they do not prove every hit is reachable code.",
+    "The current rewriter refuses this image and leaves it unchanged.",
+    "The proprietary kernelcache is not included in the repository."
+  ]
+}

@@ -1,15 +1,17 @@
-# macOS sur Xiaomi Pad 5 (nabu, Snapdragon 860 / SM8150-AC)
+# macOS 27.3 sur Xiaomi Pad 5 (nabu, Snapdragon 860 / SM8150)
 
-Méthode complète, scripts et résultats de tests (novembre 2026) pour faire tourner macOS sur la Xiaomi Pad 5, jusqu'à l'installation complète de **macOS Sonoma (14.6)** en machine virtuelle émulée.
+**Cible unique : démarrer macOS 27.3 (26C5035r) nativement sur la Pad 5.** UniXNU construit actuellement ce profil à partir de XNU 12377.121.6 et prélinke le kernelcache 27.3. Le SM8150 ne présente pas de PAC matériel. La série locale explore un kernel ARM64 avec émulation PAC ; elle s'applique à XNU 12377 et sa compilation réelle tourne en CI sur macOS (le témoin non patché compile ; la série NABU a fait apparaître des erreurs corrigées depuis). Rien n'a démarré. Aucun flash n'a été effectué. Voir [NATIF-MACOS-27.md](NATIF-MACOS-27.md) pour les mesures et les blocages.
+
+Le bootloader est toujours verrouillé (`ro.boot.flash.locked=1`). Aucune partition n'a été modifiée. Les essais Sonoma via QEMU décrits dans [NATIF-SONOMA.md](NATIF-SONOMA.md) sont historiques et ne constituent pas un port natif.
 
 ## Conclusion en 30 secondes
 
 | Objectif | Faisable ? | Comment |
 |---|---|---|
-| macOS **natif** (remplacer Android par macOS) | **Non, impossible** | macOS n'a ni noyau, ni pilotes, ni chaîne de démarrage pour un SoC Qualcomm. Aucun projet au monde ne l'a fait. |
-| Linux complet sur la Pad 5 (étape obligatoire) | **Oui, excellent** | Ubuntu 26.04 LTS communautaire, noyau 7.3.3, GPU Adreno 640 accéléré, Wi-Fi, Bluetooth, son, stylet, 120 Hz, dual-boot avec Android. |
-| macOS **en VM émulée** sur la Pad 5 | **Oui, lent** | QEMU + TCG (émulation x86-64, pas de KVM) + OpenCore. **Testé : Catalina et Sonoma atteignent l'installeur.** |
-| macOS **ARM (Apple Silicon) en VM** | **Pas aujourd'hui** | Exige KVM + Pointer Authentication ou 16 Go de RAM. La Pad 5 : 6 Go, ARMv8.2, pas de KVM. |
+| macOS 27.3 **natif** sur nabu | **Non démarré; patches expérimentaux** | Le profil public cible le kernelcache 27.3 avec XNU 12377 comme base. Le PAC logiciel, le démarrage PSCI, les pilotes tactiles et Wi-Fi restent non validés. Voir [NATIF-MACOS-27.md](NATIF-MACOS-27.md). |
+| Linux sur la Pad 5 (référence matérielle seulement) | **Oui** | Un port communautaire Ubuntu documente les pilotes et l'état du matériel nabu; ce n'est pas l'objectif d'installation de ce dépôt. |
+| macOS **en VM émulée** | **Recovery testée; installation inachevée** | QEMU + TCG + OpenCore. Catalina atteint Utilities et Sonoma atteint Recovery dans le labo x86-64; le téléchargement/install n'a pas été terminé et aucun test sur Pad 5 n'est consigné. |
+| macOS **ARM (Apple Silicon) en VM** | **Pas validé** | La Pad 5 expose 6 Go de RAM et n'expose pas `paca`/`pacg` dans Android; aucune VM Apple Silicon n'a été validée sur elle. |
 | macOS **fluide au quotidien** sur l'écran de la Pad 5 | **Oui** | Déport d'écran vers un vrai Mac ou un Mac mini loué dans le cloud. |
 
 ## Contenu du dépôt
@@ -22,12 +24,53 @@ Méthode complète, scripts et résultats de tests (novembre 2026) pour faire to
 | `04-tablette-mac-distant.sh` | Tablette | Remmina + RustDesk pour afficher un vrai Mac sur la Pad 5. |
 | `lab/get_recovery.sh` | Labo | Téléchargement d'une image de récupération Apple sans Mac (protocole Internet Recovery). |
 | `lab/ctl.py` | Labo | Pilotage d'une VM QEMU sans écran (captures, clavier, souris) via le moniteur. |
+| `lab/compat/xar_extract.py` | PC | Lecture/extraction XAR contrôlée avec vérification des checksums du TOC et des membres. |
+| `lab/compat/pbzx_extract.py` | PC | Décodage des blocs XZ/raw `pbzx` utilisés dans les paquets Apple. |
+| `lab/compat/inspect_macho_arch.py` | PC | Inventaire des tranches Mach-O `arm64` et `arm64e`. |
+| `lab/compat/arm64e_pauth.py` | PC | Traduit des formes PAC/PAUTH, dont PACIASP/AUTIASP et certains LDRAA/LDRAB; cas risqués refusés. |
+| `lab/compat/scan_arm64e_pauth.py` | PC | Repère les instructions PAC connues dans les régions exécutables d'un Mach-O `arm64e`, sans modifier le fichier. |
+| `lab/compat/macho_codesign.py` | PC | Recalcule plusieurs CodeDirectories SHA-1/SHA-256, retire l'enveloppe CMS et vérifie les pages d'un Mach-O signé; ne construit pas d'image amorçable. |
+| `lab/compat/rewrite_macho_pauth.py` | PC | Réécriture arm64e de largeur fixe avec rafraîchissement de signature; refuse les formes PAC qui exigent relocalisation ou sont inconnues. |
+| `lab/probe_nabu_macos27.ps1` | PC Windows avec ADB | Collecte les indicateurs PAC Linux, MIDR, propriétés SoC et verrouillage du bootloader en lecture seule. |
+| `lab/nabu/build_arm64e_probe.py`, `lab/nabu/run_arm64e_probe.py` | PC avec ADB | Génère et exécute sur chaque cœur les tests EL0 des instructions PAC et des registres ID_AA64ISAR. |
+| `lab/results/nabu-macos27-pac.json` | Résultat matériel | Valeurs PAC lues et échecs PACIA observés sur les huit cœurs; numéro de série omis. |
+| `lab/results/nabu-macos27-radio-hardware.json` | Matériel radio nabu | Nœuds radio observés par ADB en lecture seule ; `wlan0` est rattaché à `icnss@18800000`, le WLAN intégré WCN3990 (le nœud QCA6390 est générique et inactif, voir `lab/nabu/wifi/WIFI.md`). |
+| `lab/results/macos27-kernelcache-pac-scan-summary.json` | Résultat du kernelcache 27.3 | Hash vérifié, comptage PAC, expansions et segments non couverts; aucun binaire Apple inclus. |
+| `lab/compat/inspect_iohid_vtable.py` | Analyse IOHID 27.3 | Mesure la vtable `IOHIDDevice`, décode ses fixups du kernelcache racine et associe les pointeurs aux symboles exacts sans modifier l'IPSW. |
+| `lab/results/macos27-iohid-vtable-report.json` | Résultat du tactile 27.3 | 334 slots fonctionnels authentifiés IA, une cellule nulle de fin, et 334 noms exacts retrouvés dans les 370 membres du kernelcache. `handleStart` est au slot 272 et `handleReport` au slot 285 (référence iPadOS 17.7 : slots 168/181). |
+| `lab/compat/scan_kernelcache_fixups.py` | Analyse PAC 27.3 | Parcourt les chaînes format 8 et résout les cibles niveau 0 sans réécrire le kernelcache. |
+| `lab/results/macos27-kernelcache-fixup-summary.json` | Résultat des fixups 27.3 | 898 429 pointeurs authentifiés sur 1 017 384 entrées; les clés IA et DA sont comptées par segment. |
+| `lab/results/macos27-kernelcache-fixup-resolution.json` | Résolution des fixups 27.3 | Les 1 017 384 cibles sont résolues au niveau 0 et retombent dans les segments racine; aucun pointeur n'est réécrit. |
+| `lab/compat/patches/xnu-12377/0001-accept-authenticated-fixups-without-pac.patch` | XNU 27.3 / nabu | Le chemin XNU sans PAC stocke les VA résolues comme pointeurs ordinaires au lieu d'arrêter sur les 898 429 fixups authentifiés; il ne simule pas les instructions PAC. Le patch n'a pas encore été compilé ni démarré. |
+| `lab/compat/nabu_pauth_emu.h` | Modèle PAC ARM64 sans PAC | Décode et exécute en C les instructions PAC non-HINT, branches et chargements authentifiés pour le chemin de trappe XNU. |
+| `lab/compat/patches/xnu-12377/0002-emulate-pauth-el0-el1-without-pac.patch` | XNU 27.3 / nabu | Ajoute l'émulation PAC à EL0 et EL1, activée par défaut sous la carte `NABU`; la série nabu est compilée et liée en noyau arm64 par la CI, sans validation de démarrage. |
+| `lab/compat/patches/xnu-12377/0003-nabu-sm8150-machine-and-gic.patch` | XNU 27.3 / nabu | Ajoute la config SM8150, GICv3 Group 1, le timer 19, SGI 1 et le rangement des affinités CPU; appliqué à blanc, pas compilé. |
+| `lab/compat/patches/xnu-12377/0004-nabu-psci-smp-and-platform-expert.patch` | XNU 27.3 / nabu | Ajoute l'ADT, le driver `IOCPU`, PSCI `CPU_ON` via SMC et le trampoline EL2→EL1. La série compile et lie un noyau arm64 en CI; PSCI et le démarrage restent à valider. |
+| `lab/compat/patches/xnu-12377/0005-macos27-coreentitlements-stack-shift.patch` | Prélink macOS 27.3 | Fournit à AMFI l'alignement de pile nabu de 8 Kio (`shift=13`); rebuild CI en cours. |
+| `lab/compat/patches/unixnu/nabu-machine-flags.patch` | UniXNU build | Permet au build XNU de remplacer les flags de carte de référence par les flags nabu tout en conservant ses chemins d'artefacts existants. |
+| `lab/nabu/macos-27.3/arm64-machine.config` | Fragment build nabu | Sélectionne `ARM64_BOARD_CONFIG_NABU` et ARMv8.2 pour le noyau expérimental. |
+| `lab/compat/test_nabu_pauth_emu.c` | Fixture C portable | 13 scénarios et les 1 024 immédiats LDRA compilés et exécutés sur l'hôte avec Zig/Clang; ce n'est pas un test de démarrage XNU. |
+| `lab/results/macos27-pauth-emulator-fixtures.json` | Résultat fixture | Résume les cas passés et les validations qui restent à faire. |
+| `lab/compat/patches/unixnu/nabu-macos27-arm64-profile.patch` | UniXNU resolver | Permet à l'override macOS 27.3 du seul appareil nabu de sélectionner ARM64 sans changer le profil Mac général. |
+| `lab/nabu/macos-27.3/arm64-override.toml` | Fragment profil nabu | Sélectionne ARM64 dans l'override de macOS 27.3, nécessaire au Snapdragon 860 sans PAC. |
+| `lab/nabu/nt36523_touch.py` | PC | Décode les rapports multitouch SPI du contrôleur Novatek NT36523; ce n'est pas encore son pilote macOS. |
+| `lab/nabu/touch/` | Kext macOS / tests hôte | Pile tactile indépendante : protocole NT36523, moteur SPI GENI, HID multitouch, kext `NabuNT36523HID`. Compilé et lié contre le SDK 26.2 en CI ; non testé sur la tablette. |
+| `lab/nabu/wifi/` | Étude et code | Réidentification du Wi-Fi (WCN3990 intégré), codec QRTR/QMI indépendant et premier message WLFW, testés octet par octet. |
+| `lab/compat/xnu-build/` | CI / Mac | Application épinglée de la série XNU et résumé des journaux de compilation. |
+| `lab/compat/scan_isa_level.py` | PC | Compte les instructions qu'un cœur Kryo 485 ne peut pas exécuter (PAC non-HINT, ARMv8.3+, registres système Apple). |
+| `lab/compat/check_kext_symbols.py` | PC | Vérifie que chaque symbole importé par un kext existe dans un kernelcache fileset (à lancer sur le 27.3 local). |
+| `.github/workflows/xnu-build.yml` | CI macOS | Compile XNU 12377 avec et sans la série nabu, avec un témoin VMAPPLE. |
+| `.github/workflows/touch-kext.yml` | CI | Tests hôte du tactile, compilation du kext et résolution de ses symboles. |
 
 Captures des tests (OpenCore, Catalina Recovery et Utilities, Sonoma Recovery) : dossier `xiaomi-pad5-macos/` du dépôt `fedora-config`, branche `ccr-475fd790-4b2n9n`.
 
 ---
 
-## Méthode complète : macOS Sonoma installé sur la Pad 5
+## Procédure expérimentale : macOS Sonoma en VM via QEMU
+
+Cette procédure démarre une VM et n'installe pas macOS en natif. Le script `01-pc-installer-ubuntu-nabu.sh` installe Linux; son mode `single` efface Android et ne doit pas être utilisé comme installateur Sonoma.
+
+Cette procédure décrit une tentative depuis Ubuntu sur la tablette. Les tests consignés ont seulement validé Recovery sur un hôte x86-64 de labo; l'installation complète et les timings ci-dessous ne sont pas validés sur la Pad 5.
 
 ### Étape 0. Prérequis
 
@@ -79,7 +122,7 @@ Le script : installe `qemu-system-x86`, `dmg2img`, `zram-tools` (zram à 50 %) ;
 1. Menu OpenCore : flèche droite jusqu'à **macOS Base System**, Entrée.
 2. Pomme et barre de progression. En émulation sur la Pad 5 : 15 à 40 minutes jusqu'à l'écran **Recovery** (Restore from Time Machine / Reinstall macOS Sonoma / Safari / Disk Utility).
 
-Mesuré en émulation pure sur un hôte x86 4 cœurs sans KVM : noyau Darwin 23.6.0 lancé à 1 min, espace utilisateur à 4 min, écran Recovery complet à 16 min. Sur la Pad 5 l'hôte est ARM (traduction x86 vers ARM64 en plus), compter 2 à 3 fois plus.
+Mesuré en émulation pure sur un hôte x86 4 cœurs sans KVM : noyau Darwin 23.6.0 lancé à 1 min, espace utilisateur à 4 min, écran Recovery complet à 16 min. Pour la Pad 5 ARM, le dépôt estime 2 à 3 fois plus longtemps; ce facteur n'a pas été mesuré sur la tablette.
 
 ### Étape 4. Formater le disque virtuel en APFS
 
@@ -100,7 +143,7 @@ exit
 1. Dans la fenêtre Recovery : **Reinstall macOS Sonoma**, Continue, Agree, Agree.
 2. Choisir le volume **macOS**, Install.
 3. Téléchargement d'environ 12 Go depuis Apple (`swcdn.apple.com`, `swscan.apple.com`), puis copie sur le disque. La VM redémarre plusieurs fois. À chaque redémarrage, OpenCore propose **macOS Installer** puis, à la fin, **macOS** : laisser le choix par défaut ou sélectionner avec les flèches.
-4. Durée en émulation sur la Pad 5 : prévoir **4 à 8 heures**, tablette branchée, écran laissé allumé ou `HEADLESS=1` (voir ci-dessous).
+4. Estimation non vérifiée sur la Pad 5 : **4 à 8 heures** en émulation, tablette branchée, écran laissé allumé ou `HEADLESS=1` (voir ci-dessous).
 
 ### Étape 6. Après l'installation
 
@@ -149,20 +192,22 @@ Où le test s'est arrêté : l'environnement de test n'avait pas d'accès Intern
 
 Le firmware Qualcomm démarre Linux en EL1 ; l'hyperviseur Qualcomm occupe EL2. `/dev/kvm` n'existe donc pas, même avec un noyau compilé avec KVM. Le remplacement d'hyperviseur `qhypstub` n'existe que pour MSM8916/8939. Toute VM passe par TCG, 10 à 30 fois plus lent que le natif.
 
-## Pourquoi macOS Intel plutôt que macOS ARM
+## Anciennes pistes VM (elles ne réalisent pas l'objectif natif)
 
 | Voie | Projets | Pourquoi non sur la Pad 5 |
 |---|---|---|
 | macOS ARM (vmapple) sous KVM | vmapple-cli, reims-vgpu | KVM impossible ; exige aussi Pointer Authentication (ARMv8.3), le Kryo 485 est ARMv8.2. |
 | macOS ARM sous TCG | orchard, Ambrosia | 16 Go de RAM hôte, guest 10 Go, GPU Vulkan. Code de recherche. |
-| **macOS Intel + OpenCore sous TCG** | OSX-KVM | Mature, 3 à 4 Go de RAM, aucun Mac requis. **Voie retenue.** |
+| macOS Intel + OpenCore sous TCG | OSX-KVM | Les essais consignés atteignent Recovery seulement; cette VM n'est pas une installation native. |
 
-## Pourquoi macOS natif est impossible
+## Cible native actuelle : macOS 27.3
 
-1. XNU ne supporte que les puces Apple (et les PC Intel). Aucun pilote Adreno, WCN3990, UFS, écran, tactile.
-2. macOS ARM exige iBoot et des firmwares signés Apple ; la Pad 5 démarre via XBL/ABL Qualcomm et un UEFI communautaire.
-3. Code fermé : impossible d'écrire les pilotes manquants, contrairement à Linux ou Windows on ARM.
-4. OpenCore ne fonctionne que sur PC Intel/AMD. Rien d'équivalent pour un ARM non-Apple.
+- Les registres PAC ont été lus directement sur les huit cœurs; les champs PAC sont nuls et PACIA/AUTIA lèvent une instruction illégale.
+- Un correctif PAC de référence s'applique au XNU `12377.121.6` après son correctif JSCVT préalable. Il émule des instructions arm64e en mode utilisateur, mais n'a pas encore démontré de démarrage sur l'appareil.
+- Le kernelcache officiel Mac17,11 a été vérifié par SHA-256. Le réécriveur actuel s'arrête sur 643 formes nécessitant une relocalisation, 24 formes non prises en charge et 4 segments exécutables qu'il ne couvre pas.
+- Aucun noyau macOS 27.3 adapté à nabu n'a été compilé ni démarré. Aucun flash n'a été tenté.
+
+Voir [NATIF-MACOS-27.md](NATIF-MACOS-27.md) pour les mesures, les vérifications XNU et l'avancement. Les essais Sonoma en QEMU dans ce README et [NATIF-SONOMA.md](NATIF-SONOMA.md) restent historiques.
 
 ## macOS fluide sur la Pad 5
 
@@ -182,3 +227,4 @@ La licence macOS n'autorise son exécution que sur du matériel Apple, y compris
 - OSX-KVM : <https://github.com/kholia/OSX-KVM> ; macrecovery (OpenCorePkg) : <https://github.com/acidanthera/OpenCorePkg>
 - macOS émulé sous TCG : <https://github.com/utmapp/UTM/discussions/4349>
 - macOS ARM en VM : <https://github.com/guoPhineas/vmapple-cli>, <https://github.com/yaelliethy/orchard>, <https://github.com/steelbrain/experiment-macOS-arm64-on-linux-x86>, <https://www.qemu.org/docs/master/system/arm/vmapple.html>
+

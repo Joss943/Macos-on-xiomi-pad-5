@@ -1,0 +1,2076 @@
+{
+  "schema": "arm64e-iohid-vtable-report-v1",
+  "kernelcache_sha256": "d1003b5143ffd88439b4d45b6017f587171cfe6855660bed05370a2ea5db9fe9",
+  "fileset_member": "com.apple.iokit.IOHIDFamily",
+  "vtable_symbol": "__ZTV11IOHIDDevice",
+  "vtable_address": "0xfffffe00085ef6d0",
+  "address_point": "0xfffffe00085ef6e0",
+  "next_symbol": "__ZTVN11IOHIDDevice9MetaClassE",
+  "next_symbol_address": "0xfffffe00085f0158",
+  "segment": "__DATA_CONST",
+  "vtable_extent_bytes_including_abi_header": 2696,
+  "inferred_function_slots": 335,
+  "callable_slots_from_root_chains": 334,
+  "zero_padding_slots_from_root_chains": [
+    334
+  ],
+  "reference_driver_function_slots": 207,
+  "reference_slot_layout_matches": false,
+  "member_has_lc_dyld_chained_fixups": false,
+  "root_chained_vtable_pointers": {
+    "available": true,
+    "decoded": true,
+    "kernelcache_root_segment": "__DATA_CONST",
+    "root_segment_index": 2,
+    "segment_offset": "0xdc0000",
+    "segment_vmsize": 13664256,
+    "page_size": 16384,
+    "pointer_format": 8,
+    "pointer_format_name": "DYLD_CHAINED_PTR_64_KERNEL_CACHE",
+    "chain_stride_bytes": 4,
+    "vtable_slots": 335,
+    "slots_with_fixups": 334,
+    "authenticated_slots": 334,
+    "unauthenticated_slots": 0,
+    "slots_missing_fixups": 1,
+    "missing_slot_indexes": [
+      334
+    ],
+    "zero_padding_slot_indexes": [
+      334
+    ],
+    "unresolved_nonzero_slots": [],
+    "authentication_key_counts": {
+      "IA": 334
+    },
+    "cache_level_counts": {
+      "0": 334
+    },
+    "cache_level_zero_base": "0xfffffe0007004000",
+    "exact_symbolized_slots": 334,
+    "fileset_members_with_symbols": 370,
+    "slot_symbols": [
+      {
+        "slot": 0,
+        "symbols": [
+          "__ZN11IOHIDDeviceD1Ev"
+        ]
+      },
+      {
+        "slot": 1,
+        "symbols": [
+          "__ZN11IOHIDDeviceD0Ev"
+        ]
+      },
+      {
+        "slot": 2,
+        "symbols": [
+          "__ZNK8OSObject7releaseEi"
+        ]
+      },
+      {
+        "slot": 3,
+        "symbols": [
+          "__ZNK8OSObject14getRetainCountEv"
+        ]
+      },
+      {
+        "slot": 4,
+        "symbols": [
+          "__ZNK8OSObject6retainEv"
+        ]
+      },
+      {
+        "slot": 5,
+        "symbols": [
+          "__ZNK8OSObject7releaseEv"
+        ]
+      },
+      {
+        "slot": 6,
+        "symbols": [
+          "__ZNK8OSObject9serializeEP11OSSerialize"
+        ]
+      },
+      {
+        "slot": 7,
+        "symbols": [
+          "__ZNK11IOHIDDevice12getMetaClassEv"
+        ]
+      },
+      {
+        "slot": 8,
+        "symbols": [
+          "__ZNK15OSMetaClassBase9isEqualToEPKS_"
+        ]
+      },
+      {
+        "slot": 9,
+        "symbols": [
+          "__ZNK8OSObject12taggedRetainEPKv"
+        ]
+      },
+      {
+        "slot": 10,
+        "symbols": [
+          "__ZNK8OSObject13taggedReleaseEPKv"
+        ]
+      },
+      {
+        "slot": 11,
+        "symbols": [
+          "__ZNK8OSObject13taggedReleaseEPKvi"
+        ]
+      },
+      {
+        "slot": 12,
+        "symbols": [
+          "__ZN11IOHIDDevice8DispatchE5IORPC"
+        ]
+      },
+      {
+        "slot": 13,
+        "symbols": [
+          "__ZN15OSMetaClassBase25_RESERVEDOSMetaClassBase0Ev"
+        ]
+      },
+      {
+        "slot": 14,
+        "symbols": [
+          "__ZN15OSMetaClassBase25_RESERVEDOSMetaClassBase1Ev"
+        ]
+      },
+      {
+        "slot": 15,
+        "symbols": [
+          "__ZN15OSMetaClassBase25_RESERVEDOSMetaClassBase2Ev"
+        ]
+      },
+      {
+        "slot": 16,
+        "symbols": [
+          "__ZN15OSMetaClassBase8DispatchE5IORPC"
+        ]
+      },
+      {
+        "slot": 17,
+        "symbols": [
+          "__ZN15OSMetaClassBase25_RESERVEDOSMetaClassBase4Ev"
+        ]
+      },
+      {
+        "slot": 18,
+        "symbols": [
+          "__ZN15OSMetaClassBase25_RESERVEDOSMetaClassBase5Ev"
+        ]
+      },
+      {
+        "slot": 19,
+        "symbols": [
+          "__ZN15OSMetaClassBase25_RESERVEDOSMetaClassBase6Ev"
+        ]
+      },
+      {
+        "slot": 20,
+        "symbols": [
+          "__ZN15OSMetaClassBase25_RESERVEDOSMetaClassBase7Ev"
+        ]
+      },
+      {
+        "slot": 21,
+        "symbols": [
+          "__ZN8OSObject4initEv"
+        ]
+      },
+      {
+        "slot": 22,
+        "symbols": [
+          "__ZN11IOHIDDevice4freeEv"
+        ]
+      },
+      {
+        "slot": 23,
+        "symbols": [
+          "__ZN8OSObject18_RESERVEDOSObject0Ev"
+        ]
+      },
+      {
+        "slot": 24,
+        "symbols": [
+          "__ZN8OSObject18_RESERVEDOSObject1Ev"
+        ]
+      },
+      {
+        "slot": 25,
+        "symbols": [
+          "__ZN8OSObject18_RESERVEDOSObject2Ev"
+        ]
+      },
+      {
+        "slot": 26,
+        "symbols": [
+          "__ZN8OSObject18_RESERVEDOSObject3Ev"
+        ]
+      },
+      {
+        "slot": 27,
+        "symbols": [
+          "__ZN8OSObject18_RESERVEDOSObject4Ev"
+        ]
+      },
+      {
+        "slot": 28,
+        "symbols": [
+          "__ZN8OSObject18_RESERVEDOSObject5Ev"
+        ]
+      },
+      {
+        "slot": 29,
+        "symbols": [
+          "__ZN8OSObject18_RESERVEDOSObject6Ev"
+        ]
+      },
+      {
+        "slot": 30,
+        "symbols": [
+          "__ZN8OSObject18_RESERVEDOSObject7Ev"
+        ]
+      },
+      {
+        "slot": 31,
+        "symbols": [
+          "__ZN8OSObject18_RESERVEDOSObject8Ev"
+        ]
+      },
+      {
+        "slot": 32,
+        "symbols": [
+          "__ZN8OSObject18_RESERVEDOSObject9Ev"
+        ]
+      },
+      {
+        "slot": 33,
+        "symbols": [
+          "__ZN8OSObject19_RESERVEDOSObject10Ev"
+        ]
+      },
+      {
+        "slot": 34,
+        "symbols": [
+          "__ZN8OSObject19_RESERVEDOSObject11Ev"
+        ]
+      },
+      {
+        "slot": 35,
+        "symbols": [
+          "__ZN8OSObject19_RESERVEDOSObject12Ev"
+        ]
+      },
+      {
+        "slot": 36,
+        "symbols": [
+          "__ZN8OSObject19_RESERVEDOSObject13Ev"
+        ]
+      },
+      {
+        "slot": 37,
+        "symbols": [
+          "__ZN8OSObject19_RESERVEDOSObject14Ev"
+        ]
+      },
+      {
+        "slot": 38,
+        "symbols": [
+          "__ZN8OSObject19_RESERVEDOSObject15Ev"
+        ]
+      },
+      {
+        "slot": 39,
+        "symbols": [
+          "__ZNK15IORegistryEntry12copyPropertyEPKcPK15IORegistryPlanej"
+        ]
+      },
+      {
+        "slot": 40,
+        "symbols": [
+          "__ZNK15IORegistryEntry12copyPropertyEPK8OSStringPK15IORegistryPlanej"
+        ]
+      },
+      {
+        "slot": 41,
+        "symbols": [
+          "__ZNK15IORegistryEntry12copyPropertyEPK8OSSymbolPK15IORegistryPlanej"
+        ]
+      },
+      {
+        "slot": 42,
+        "symbols": [
+          "__ZNK15IORegistryEntry15copyParentEntryEPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 43,
+        "symbols": [
+          "__ZNK15IORegistryEntry14copyChildEntryEPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 44,
+        "symbols": [
+          "__ZN15IORegistryEntry17runPropertyActionEPFiP8OSObjectPvS2_S2_S2_ES1_S2_S2_S2_S2_"
+        ]
+      },
+      {
+        "slot": 45,
+        "symbols": [
+          "__ZN15IORegistryEntry25_RESERVEDIORegistryEntry0Ev"
+        ]
+      },
+      {
+        "slot": 46,
+        "symbols": [
+          "__ZN15IORegistryEntry25_RESERVEDIORegistryEntry1Ev"
+        ]
+      },
+      {
+        "slot": 47,
+        "symbols": [
+          "__ZN15IORegistryEntry25_RESERVEDIORegistryEntry2Ev"
+        ]
+      },
+      {
+        "slot": 48,
+        "symbols": [
+          "__ZN15IORegistryEntry25_RESERVEDIORegistryEntry3Ev"
+        ]
+      },
+      {
+        "slot": 49,
+        "symbols": [
+          "__ZN15IORegistryEntry25_RESERVEDIORegistryEntry4Ev"
+        ]
+      },
+      {
+        "slot": 50,
+        "symbols": [
+          "__ZN15IORegistryEntry25_RESERVEDIORegistryEntry5Ev"
+        ]
+      },
+      {
+        "slot": 51,
+        "symbols": [
+          "__ZN15IORegistryEntry25_RESERVEDIORegistryEntry6Ev"
+        ]
+      },
+      {
+        "slot": 52,
+        "symbols": [
+          "__ZN15IORegistryEntry25_RESERVEDIORegistryEntry7Ev"
+        ]
+      },
+      {
+        "slot": 53,
+        "symbols": [
+          "__ZN15IORegistryEntry25_RESERVEDIORegistryEntry8Ev"
+        ]
+      },
+      {
+        "slot": 54,
+        "symbols": [
+          "__ZN15IORegistryEntry25_RESERVEDIORegistryEntry9Ev"
+        ]
+      },
+      {
+        "slot": 55,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry10Ev"
+        ]
+      },
+      {
+        "slot": 56,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry11Ev"
+        ]
+      },
+      {
+        "slot": 57,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry12Ev"
+        ]
+      },
+      {
+        "slot": 58,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry13Ev"
+        ]
+      },
+      {
+        "slot": 59,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry14Ev"
+        ]
+      },
+      {
+        "slot": 60,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry15Ev"
+        ]
+      },
+      {
+        "slot": 61,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry16Ev"
+        ]
+      },
+      {
+        "slot": 62,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry17Ev"
+        ]
+      },
+      {
+        "slot": 63,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry18Ev"
+        ]
+      },
+      {
+        "slot": 64,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry19Ev"
+        ]
+      },
+      {
+        "slot": 65,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry20Ev"
+        ]
+      },
+      {
+        "slot": 66,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry21Ev"
+        ]
+      },
+      {
+        "slot": 67,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry22Ev"
+        ]
+      },
+      {
+        "slot": 68,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry23Ev"
+        ]
+      },
+      {
+        "slot": 69,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry24Ev"
+        ]
+      },
+      {
+        "slot": 70,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry25Ev"
+        ]
+      },
+      {
+        "slot": 71,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry26Ev"
+        ]
+      },
+      {
+        "slot": 72,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry27Ev"
+        ]
+      },
+      {
+        "slot": 73,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry28Ev"
+        ]
+      },
+      {
+        "slot": 74,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry29Ev"
+        ]
+      },
+      {
+        "slot": 75,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry30Ev"
+        ]
+      },
+      {
+        "slot": 76,
+        "symbols": [
+          "__ZN15IORegistryEntry26_RESERVEDIORegistryEntry31Ev"
+        ]
+      },
+      {
+        "slot": 77,
+        "symbols": [
+          "__ZN11IOHIDDevice4initEP12OSDictionary"
+        ]
+      },
+      {
+        "slot": 78,
+        "symbols": [
+          "__ZN15IORegistryEntry16setPropertyTableEP12OSDictionary"
+        ]
+      },
+      {
+        "slot": 79,
+        "symbols": [
+          "__ZN11IOHIDDevice11setPropertyEPK8OSSymbolP8OSObject"
+        ]
+      },
+      {
+        "slot": 80,
+        "symbols": [
+          "__ZN15IORegistryEntry11setPropertyEPK8OSStringP8OSObject"
+        ]
+      },
+      {
+        "slot": 81,
+        "symbols": [
+          "__ZN15IORegistryEntry11setPropertyEPKcP8OSObject"
+        ]
+      },
+      {
+        "slot": 82,
+        "symbols": [
+          "__ZN15IORegistryEntry11setPropertyEPKcS1_"
+        ]
+      },
+      {
+        "slot": 83,
+        "symbols": [
+          "__ZN15IORegistryEntry11setPropertyEPKcb"
+        ]
+      },
+      {
+        "slot": 84,
+        "symbols": [
+          "__ZN15IORegistryEntry11setPropertyEPKcyj"
+        ]
+      },
+      {
+        "slot": 85,
+        "symbols": [
+          "__ZN15IORegistryEntry11setPropertyEPKcPvj"
+        ]
+      },
+      {
+        "slot": 86,
+        "symbols": [
+          "__ZN15IORegistryEntry14removePropertyEPK8OSSymbol"
+        ]
+      },
+      {
+        "slot": 87,
+        "symbols": [
+          "__ZN15IORegistryEntry14removePropertyEPK8OSString"
+        ]
+      },
+      {
+        "slot": 88,
+        "symbols": [
+          "__ZN15IORegistryEntry14removePropertyEPKc"
+        ]
+      },
+      {
+        "slot": 89,
+        "symbols": [
+          "__ZNK15IORegistryEntry11getPropertyEPK8OSSymbol"
+        ]
+      },
+      {
+        "slot": 90,
+        "symbols": [
+          "__ZNK15IORegistryEntry11getPropertyEPK8OSString"
+        ]
+      },
+      {
+        "slot": 91,
+        "symbols": [
+          "__ZNK15IORegistryEntry11getPropertyEPKc"
+        ]
+      },
+      {
+        "slot": 92,
+        "symbols": [
+          "__ZNK15IORegistryEntry11getPropertyEPK8OSSymbolPK15IORegistryPlanej"
+        ]
+      },
+      {
+        "slot": 93,
+        "symbols": [
+          "__ZNK15IORegistryEntry11getPropertyEPK8OSStringPK15IORegistryPlanej"
+        ]
+      },
+      {
+        "slot": 94,
+        "symbols": [
+          "__ZNK15IORegistryEntry11getPropertyEPKcPK15IORegistryPlanej"
+        ]
+      },
+      {
+        "slot": 95,
+        "symbols": [
+          "__ZNK15IORegistryEntry12copyPropertyEPK8OSSymbol"
+        ]
+      },
+      {
+        "slot": 96,
+        "symbols": [
+          "__ZNK15IORegistryEntry12copyPropertyEPK8OSString"
+        ]
+      },
+      {
+        "slot": 97,
+        "symbols": [
+          "__ZNK15IORegistryEntry12copyPropertyEPKc"
+        ]
+      },
+      {
+        "slot": 98,
+        "symbols": [
+          "__ZNK15IORegistryEntry24dictionaryWithPropertiesEv"
+        ]
+      },
+      {
+        "slot": 99,
+        "symbols": [
+          "__ZNK9IOService19serializePropertiesEP11OSSerialize"
+        ]
+      },
+      {
+        "slot": 100,
+        "symbols": [
+          "__ZN15IORegistryEntry13setPropertiesEP8OSObject"
+        ]
+      },
+      {
+        "slot": 101,
+        "symbols": [
+          "__ZNK15IORegistryEntry17getParentIteratorEPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 102,
+        "symbols": [
+          "__ZNK15IORegistryEntry14applyToParentsEPFvPS_PvES1_PK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 103,
+        "symbols": [
+          "__ZNK15IORegistryEntry14getParentEntryEPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 104,
+        "symbols": [
+          "__ZNK15IORegistryEntry16getChildIteratorEPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 105,
+        "symbols": [
+          "__ZNK15IORegistryEntry15applyToChildrenEPFvPS_PvES1_PK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 106,
+        "symbols": [
+          "__ZNK15IORegistryEntry13getChildEntryEPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 107,
+        "symbols": [
+          "__ZNK15IORegistryEntry7isChildEPS_PK15IORegistryPlaneb"
+        ]
+      },
+      {
+        "slot": 108,
+        "symbols": [
+          "__ZNK15IORegistryEntry8isParentEPS_PK15IORegistryPlaneb"
+        ]
+      },
+      {
+        "slot": 109,
+        "symbols": [
+          "__ZNK15IORegistryEntry7inPlaneEPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 110,
+        "symbols": [
+          "__ZNK15IORegistryEntry8getDepthEPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 111,
+        "symbols": [
+          "__ZN15IORegistryEntry14attachToParentEPS_PK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 112,
+        "symbols": [
+          "__ZN15IORegistryEntry16detachFromParentEPS_PK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 113,
+        "symbols": [
+          "__ZN15IORegistryEntry13attachToChildEPS_PK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 114,
+        "symbols": [
+          "__ZN15IORegistryEntry15detachFromChildEPS_PK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 115,
+        "symbols": [
+          "__ZN15IORegistryEntry11detachAboveEPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 116,
+        "symbols": [
+          "__ZN15IORegistryEntry9detachAllEPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 117,
+        "symbols": [
+          "__ZNK15IORegistryEntry7getNameEPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 118,
+        "symbols": [
+          "__ZNK15IORegistryEntry8copyNameEPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 119,
+        "symbols": [
+          "__ZNK15IORegistryEntry12compareNamesEP8OSObjectPP8OSString"
+        ]
+      },
+      {
+        "slot": 120,
+        "symbols": [
+          "__ZNK15IORegistryEntry11compareNameEP8OSStringPS1_"
+        ]
+      },
+      {
+        "slot": 121,
+        "symbols": [
+          "__ZN15IORegistryEntry7setNameEPK8OSSymbolPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 122,
+        "symbols": [
+          "__ZN15IORegistryEntry7setNameEPKcPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 123,
+        "symbols": [
+          "__ZNK15IORegistryEntry11getLocationEPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 124,
+        "symbols": [
+          "__ZNK15IORegistryEntry12copyLocationEPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 125,
+        "symbols": [
+          "__ZN15IORegistryEntry11setLocationEPK8OSSymbolPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 126,
+        "symbols": [
+          "__ZN15IORegistryEntry11setLocationEPKcPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 127,
+        "symbols": [
+          "__ZNK15IORegistryEntry7getPathEPcPiPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 128,
+        "symbols": [
+          "__ZNK15IORegistryEntry16getPathComponentEPcPiPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 129,
+        "symbols": [
+          "__ZN15IORegistryEntry13childFromPathEPKcPK15IORegistryPlanePcPi"
+        ]
+      },
+      {
+        "slot": 130,
+        "symbols": [
+          "__ZN9IOService4initEP15IORegistryEntryPK15IORegistryPlane"
+        ]
+      },
+      {
+        "slot": 131,
+        "symbols": [
+          "__ZN9IOService16requestTerminateEPS_j"
+        ]
+      },
+      {
+        "slot": 132,
+        "symbols": [
+          "__ZN11IOHIDDevice13willTerminateEP9IOServicej"
+        ]
+      },
+      {
+        "slot": 133,
+        "symbols": [
+          "__ZN11IOHIDDevice12didTerminateEP9IOServicejPb"
+        ]
+      },
+      {
+        "slot": 134,
+        "symbols": [
+          "__ZN9IOService15nextIdleTimeoutEyyj"
+        ]
+      },
+      {
+        "slot": 135,
+        "symbols": [
+          "__ZN9IOService18systemWillShutdownEj"
+        ]
+      },
+      {
+        "slot": 136,
+        "symbols": [
+          "__ZN9IOService22copyClientWithCategoryEPK8OSSymbol"
+        ]
+      },
+      {
+        "slot": 137,
+        "symbols": [
+          "__ZN11IOHIDDevice15configureReportEP19IOReportChannelListjPvS2_"
+        ]
+      },
+      {
+        "slot": 138,
+        "symbols": [
+          "__ZN11IOHIDDevice12updateReportEP19IOReportChannelListjPvS2_"
+        ]
+      },
+      {
+        "slot": 139,
+        "symbols": [
+          "__ZN9IOService19_RESERVEDIOService0Ev"
+        ]
+      },
+      {
+        "slot": 140,
+        "symbols": [
+          "__ZN9IOService19_RESERVEDIOService1Ev"
+        ]
+      },
+      {
+        "slot": 141,
+        "symbols": [
+          "__ZN9IOService19_RESERVEDIOService2Ev"
+        ]
+      },
+      {
+        "slot": 142,
+        "symbols": [
+          "__ZN9IOService19_RESERVEDIOService3Ev"
+        ]
+      },
+      {
+        "slot": 143,
+        "symbols": [
+          "__ZN9IOService19_RESERVEDIOService4Ev"
+        ]
+      },
+      {
+        "slot": 144,
+        "symbols": [
+          "__ZN9IOService19_RESERVEDIOService5Ev"
+        ]
+      },
+      {
+        "slot": 145,
+        "symbols": [
+          "__ZN9IOService19_RESERVEDIOService6Ev"
+        ]
+      },
+      {
+        "slot": 146,
+        "symbols": [
+          "__ZN9IOService19_RESERVEDIOService7Ev"
+        ]
+      },
+      {
+        "slot": 147,
+        "symbols": [
+          "__ZN9IOService19_RESERVEDIOService8Ev"
+        ]
+      },
+      {
+        "slot": 148,
+        "symbols": [
+          "__ZN9IOService19_RESERVEDIOService9Ev"
+        ]
+      },
+      {
+        "slot": 149,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService10Ev"
+        ]
+      },
+      {
+        "slot": 150,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService11Ev"
+        ]
+      },
+      {
+        "slot": 151,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService12Ev"
+        ]
+      },
+      {
+        "slot": 152,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService13Ev"
+        ]
+      },
+      {
+        "slot": 153,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService14Ev"
+        ]
+      },
+      {
+        "slot": 154,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService15Ev"
+        ]
+      },
+      {
+        "slot": 155,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService16Ev"
+        ]
+      },
+      {
+        "slot": 156,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService17Ev"
+        ]
+      },
+      {
+        "slot": 157,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService18Ev"
+        ]
+      },
+      {
+        "slot": 158,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService19Ev"
+        ]
+      },
+      {
+        "slot": 159,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService20Ev"
+        ]
+      },
+      {
+        "slot": 160,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService21Ev"
+        ]
+      },
+      {
+        "slot": 161,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService22Ev"
+        ]
+      },
+      {
+        "slot": 162,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService23Ev"
+        ]
+      },
+      {
+        "slot": 163,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService24Ev"
+        ]
+      },
+      {
+        "slot": 164,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService25Ev"
+        ]
+      },
+      {
+        "slot": 165,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService26Ev"
+        ]
+      },
+      {
+        "slot": 166,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService27Ev"
+        ]
+      },
+      {
+        "slot": 167,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService28Ev"
+        ]
+      },
+      {
+        "slot": 168,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService29Ev"
+        ]
+      },
+      {
+        "slot": 169,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService30Ev"
+        ]
+      },
+      {
+        "slot": 170,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService31Ev"
+        ]
+      },
+      {
+        "slot": 171,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService32Ev"
+        ]
+      },
+      {
+        "slot": 172,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService33Ev"
+        ]
+      },
+      {
+        "slot": 173,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService34Ev"
+        ]
+      },
+      {
+        "slot": 174,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService35Ev"
+        ]
+      },
+      {
+        "slot": 175,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService36Ev"
+        ]
+      },
+      {
+        "slot": 176,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService37Ev"
+        ]
+      },
+      {
+        "slot": 177,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService38Ev"
+        ]
+      },
+      {
+        "slot": 178,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService39Ev"
+        ]
+      },
+      {
+        "slot": 179,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService40Ev"
+        ]
+      },
+      {
+        "slot": 180,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService41Ev"
+        ]
+      },
+      {
+        "slot": 181,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService42Ev"
+        ]
+      },
+      {
+        "slot": 182,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService43Ev"
+        ]
+      },
+      {
+        "slot": 183,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService44Ev"
+        ]
+      },
+      {
+        "slot": 184,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService45Ev"
+        ]
+      },
+      {
+        "slot": 185,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService46Ev"
+        ]
+      },
+      {
+        "slot": 186,
+        "symbols": [
+          "__ZN9IOService20_RESERVEDIOService47Ev"
+        ]
+      },
+      {
+        "slot": 187,
+        "symbols": [
+          "__ZNK9IOService8getStateEv"
+        ]
+      },
+      {
+        "slot": 188,
+        "symbols": [
+          "__ZN9IOService15registerServiceEj"
+        ]
+      },
+      {
+        "slot": 189,
+        "symbols": [
+          "__ZN9IOService5probeEPS_Pi"
+        ]
+      },
+      {
+        "slot": 190,
+        "symbols": [
+          "__ZN11IOHIDDevice5startEP9IOService"
+        ]
+      },
+      {
+        "slot": 191,
+        "symbols": [
+          "__ZN11IOHIDDevice4stopEP9IOService"
+        ]
+      },
+      {
+        "slot": 192,
+        "symbols": [
+          "__ZN9IOService4openEPS_jPv"
+        ]
+      },
+      {
+        "slot": 193,
+        "symbols": [
+          "__ZN9IOService5closeEPS_j"
+        ]
+      },
+      {
+        "slot": 194,
+        "symbols": [
+          "__ZNK9IOService6isOpenEPKS_"
+        ]
+      },
+      {
+        "slot": 195,
+        "symbols": [
+          "__ZN11IOHIDDevice10handleOpenEP9IOServicejPv"
+        ]
+      },
+      {
+        "slot": 196,
+        "symbols": [
+          "__ZN11IOHIDDevice11handleCloseEP9IOServicej"
+        ]
+      },
+      {
+        "slot": 197,
+        "symbols": [
+          "__ZNK11IOHIDDevice12handleIsOpenEPK9IOService"
+        ]
+      },
+      {
+        "slot": 198,
+        "symbols": [
+          "__ZN9IOService9terminateEj"
+        ]
+      },
+      {
+        "slot": 199,
+        "symbols": [
+          "__ZN9IOService8finalizeEj"
+        ]
+      },
+      {
+        "slot": 200,
+        "symbols": [
+          "__ZN9IOService18lockForArbitrationEb"
+        ]
+      },
+      {
+        "slot": 201,
+        "symbols": [
+          "__ZN9IOService20unlockForArbitrationEv"
+        ]
+      },
+      {
+        "slot": 202,
+        "symbols": [
+          "__ZN9IOService15terminateClientEPS_j"
+        ]
+      },
+      {
+        "slot": 203,
+        "symbols": [
+          "__ZN9IOService12getBusyStateEv"
+        ]
+      },
+      {
+        "slot": 204,
+        "symbols": [
+          "__ZN9IOService10adjustBusyEi"
+        ]
+      },
+      {
+        "slot": 205,
+        "symbols": [
+          "__ZN11IOHIDDevice18matchPropertyTableEP12OSDictionaryPi"
+        ]
+      },
+      {
+        "slot": 206,
+        "symbols": [
+          "__ZN9IOService18matchPropertyTableEP12OSDictionary"
+        ]
+      },
+      {
+        "slot": 207,
+        "symbols": [
+          "__ZN9IOService13matchLocationEPS_"
+        ]
+      },
+      {
+        "slot": 208,
+        "symbols": [
+          "__ZN9IOService17addNeededResourceEPKc"
+        ]
+      },
+      {
+        "slot": 209,
+        "symbols": [
+          "__ZN9IOService15comparePropertyEP12OSDictionaryPKc"
+        ]
+      },
+      {
+        "slot": 210,
+        "symbols": [
+          "__ZN9IOService15comparePropertyEP12OSDictionaryPK8OSString"
+        ]
+      },
+      {
+        "slot": 211,
+        "symbols": [
+          "__ZN9IOService17comparePropertiesEP12OSDictionaryP12OSCollection"
+        ]
+      },
+      {
+        "slot": 212,
+        "symbols": [
+          "__ZN9IOService6attachEPS_"
+        ]
+      },
+      {
+        "slot": 213,
+        "symbols": [
+          "__ZN9IOService6detachEPS_"
+        ]
+      },
+      {
+        "slot": 214,
+        "symbols": [
+          "__ZNK9IOService11getProviderEv"
+        ]
+      },
+      {
+        "slot": 215,
+        "symbols": [
+          "__ZNK9IOService11getWorkLoopEv"
+        ]
+      },
+      {
+        "slot": 216,
+        "symbols": [
+          "__ZNK9IOService19getProviderIteratorEv"
+        ]
+      },
+      {
+        "slot": 217,
+        "symbols": [
+          "__ZNK9IOService23getOpenProviderIteratorEv"
+        ]
+      },
+      {
+        "slot": 218,
+        "symbols": [
+          "__ZNK9IOService9getClientEv"
+        ]
+      },
+      {
+        "slot": 219,
+        "symbols": [
+          "__ZNK9IOService17getClientIteratorEv"
+        ]
+      },
+      {
+        "slot": 220,
+        "symbols": [
+          "__ZNK9IOService21getOpenClientIteratorEv"
+        ]
+      },
+      {
+        "slot": 221,
+        "symbols": [
+          "__ZN9IOService20callPlatformFunctionEPK8OSSymbolbPvS3_S3_S3_"
+        ]
+      },
+      {
+        "slot": 222,
+        "symbols": [
+          "__ZN9IOService20callPlatformFunctionEPKcbPvS2_S2_S2_"
+        ]
+      },
+      {
+        "slot": 223,
+        "symbols": [
+          "__ZN9IOService12getResourcesEv"
+        ]
+      },
+      {
+        "slot": 224,
+        "symbols": [
+          "__ZN9IOService20getDeviceMemoryCountEv"
+        ]
+      },
+      {
+        "slot": 225,
+        "symbols": [
+          "__ZN9IOService24getDeviceMemoryWithIndexEj"
+        ]
+      },
+      {
+        "slot": 226,
+        "symbols": [
+          "__ZN9IOService24mapDeviceMemoryWithIndexEjj"
+        ]
+      },
+      {
+        "slot": 227,
+        "symbols": [
+          "__ZN9IOService15getDeviceMemoryEv"
+        ]
+      },
+      {
+        "slot": 228,
+        "symbols": [
+          "__ZN9IOService15setDeviceMemoryEP7OSArray"
+        ]
+      },
+      {
+        "slot": 229,
+        "symbols": [
+          "__ZN9IOService17registerInterruptEiP8OSObjectPFvS1_PvPS_iES2_"
+        ]
+      },
+      {
+        "slot": 230,
+        "symbols": [
+          "__ZN9IOService19unregisterInterruptEi"
+        ]
+      },
+      {
+        "slot": 231,
+        "symbols": [
+          "__ZN9IOService16getInterruptTypeEiPi"
+        ]
+      },
+      {
+        "slot": 232,
+        "symbols": [
+          "__ZN9IOService15enableInterruptEi"
+        ]
+      },
+      {
+        "slot": 233,
+        "symbols": [
+          "__ZN9IOService16disableInterruptEi"
+        ]
+      },
+      {
+        "slot": 234,
+        "symbols": [
+          "__ZN9IOService14causeInterruptEi"
+        ]
+      },
+      {
+        "slot": 235,
+        "symbols": [
+          "__ZN9IOService12requestProbeEj"
+        ]
+      },
+      {
+        "slot": 236,
+        "symbols": [
+          "__ZN11IOHIDDevice7messageEjP9IOServicePv"
+        ]
+      },
+      {
+        "slot": 237,
+        "symbols": [
+          "__ZN9IOService13messageClientEjP8OSObjectPvm"
+        ]
+      },
+      {
+        "slot": 238,
+        "symbols": [
+          "__ZN9IOService14messageClientsEjPvm"
+        ]
+      },
+      {
+        "slot": 239,
+        "symbols": [
+          "__ZN9IOService16registerInterestEPK8OSSymbolPFiPvS3_jPS_S3_mES3_S3_"
+        ]
+      },
+      {
+        "slot": 240,
+        "symbols": [
+          "__ZN9IOService16applyToProvidersEPFvPS_PvES1_"
+        ]
+      },
+      {
+        "slot": 241,
+        "symbols": [
+          "__ZN9IOService14applyToClientsEPFvPS_PvES1_"
+        ]
+      },
+      {
+        "slot": 242,
+        "symbols": [
+          "__ZN9IOService17applyToInterestedEPK8OSSymbolPFvP8OSObjectPvES5_"
+        ]
+      },
+      {
+        "slot": 243,
+        "symbols": [
+          "__ZN9IOService23acknowledgeNotificationEPvj"
+        ]
+      },
+      {
+        "slot": 244,
+        "symbols": [
+          "__ZN11IOHIDDevice13newUserClientEP4taskPvjP12OSDictionaryPP12IOUserClient"
+        ]
+      },
+      {
+        "slot": 245,
+        "symbols": [
+          "__ZN9IOService13newUserClientEP4taskPvjPP12IOUserClient"
+        ]
+      },
+      {
+        "slot": 246,
+        "symbols": [
+          "__ZN9IOService16stringFromReturnEi"
+        ]
+      },
+      {
+        "slot": 247,
+        "symbols": [
+          "__ZN9IOService15errnoFromReturnEi"
+        ]
+      },
+      {
+        "slot": 248,
+        "symbols": [
+          "__ZN9IOService6PMinitEv"
+        ]
+      },
+      {
+        "slot": 249,
+        "symbols": [
+          "__ZN9IOService6PMstopEv"
+        ]
+      },
+      {
+        "slot": 250,
+        "symbols": [
+          "__ZN9IOService10joinPMtreeEPS_"
+        ]
+      },
+      {
+        "slot": 251,
+        "symbols": [
+          "__ZN9IOService19registerPowerDriverEPS_P14IOPMPowerStatem"
+        ]
+      },
+      {
+        "slot": 252,
+        "symbols": [
+          "__ZN9IOService23requestPowerDomainStateEmP17IOPowerConnectionm"
+        ]
+      },
+      {
+        "slot": 253,
+        "symbols": [
+          "__ZN9IOService14activityTickleEmm"
+        ]
+      },
+      {
+        "slot": 254,
+        "symbols": [
+          "__ZN9IOService17setAggressivenessEmm"
+        ]
+      },
+      {
+        "slot": 255,
+        "symbols": [
+          "__ZN9IOService17getAggressivenessEmPm"
+        ]
+      },
+      {
+        "slot": 256,
+        "symbols": [
+          "__ZN9IOService13addPowerChildEPS_"
+        ]
+      },
+      {
+        "slot": 257,
+        "symbols": [
+          "__ZN9IOService16removePowerChildEP17IOPowerConnection"
+        ]
+      },
+      {
+        "slot": 258,
+        "symbols": [
+          "__ZN9IOService18setIdleTimerPeriodEm"
+        ]
+      },
+      {
+        "slot": 259,
+        "symbols": [
+          "__ZN9IOService13setPowerStateEmPS_"
+        ]
+      },
+      {
+        "slot": 260,
+        "symbols": [
+          "__ZN9IOService27maxCapabilityForDomainStateEm"
+        ]
+      },
+      {
+        "slot": 261,
+        "symbols": [
+          "__ZN9IOService31initialPowerStateForDomainStateEm"
+        ]
+      },
+      {
+        "slot": 262,
+        "symbols": [
+          "__ZN9IOService24powerStateForDomainStateEm"
+        ]
+      },
+      {
+        "slot": 263,
+        "symbols": [
+          "__ZN9IOService22powerStateWillChangeToEmmPS_"
+        ]
+      },
+      {
+        "slot": 264,
+        "symbols": [
+          "__ZN9IOService21powerStateDidChangeToEmmPS_"
+        ]
+      },
+      {
+        "slot": 265,
+        "symbols": [
+          "__ZN9IOService13askChangeDownEm"
+        ]
+      },
+      {
+        "slot": 266,
+        "symbols": [
+          "__ZN9IOService14tellChangeDownEm"
+        ]
+      },
+      {
+        "slot": 267,
+        "symbols": [
+          "__ZN9IOService16tellNoChangeDownEm"
+        ]
+      },
+      {
+        "slot": 268,
+        "symbols": [
+          "__ZN9IOService12tellChangeUpEm"
+        ]
+      },
+      {
+        "slot": 269,
+        "symbols": [
+          "__ZN9IOService16allowPowerChangeEm"
+        ]
+      },
+      {
+        "slot": 270,
+        "symbols": [
+          "__ZN9IOService17cancelPowerChangeEm"
+        ]
+      },
+      {
+        "slot": 271,
+        "symbols": [
+          "__ZN9IOService15powerChangeDoneEm"
+        ]
+      },
+      {
+        "slot": 272,
+        "symbols": [
+          "__ZN11IOHIDDevice11handleStartEP9IOService"
+        ]
+      },
+      {
+        "slot": 273,
+        "symbols": [
+          "__ZN11IOHIDDevice10handleStopEP9IOService"
+        ]
+      },
+      {
+        "slot": 274,
+        "symbols": [
+          "__ZN11IOHIDDevice17publishPropertiesEP9IOService"
+        ]
+      },
+      {
+        "slot": 275,
+        "symbols": [
+          "__ZNK11IOHIDDevice18newTransportStringEv"
+        ]
+      },
+      {
+        "slot": 276,
+        "symbols": [
+          "__ZNK11IOHIDDevice21newManufacturerStringEv"
+        ]
+      },
+      {
+        "slot": 277,
+        "symbols": [
+          "__ZNK11IOHIDDevice16newProductStringEv"
+        ]
+      },
+      {
+        "slot": 278,
+        "symbols": [
+          "__ZNK11IOHIDDevice17newVendorIDNumberEv"
+        ]
+      },
+      {
+        "slot": 279,
+        "symbols": [
+          "__ZNK11IOHIDDevice18newProductIDNumberEv"
+        ]
+      },
+      {
+        "slot": 280,
+        "symbols": [
+          "__ZNK11IOHIDDevice16newVersionNumberEv"
+        ]
+      },
+      {
+        "slot": 281,
+        "symbols": [
+          "__ZNK11IOHIDDevice15newSerialNumberEv"
+        ]
+      },
+      {
+        "slot": 282,
+        "symbols": [
+          "__ZNK11IOHIDDevice21newPrimaryUsageNumberEv"
+        ]
+      },
+      {
+        "slot": 283,
+        "symbols": [
+          "__ZNK11IOHIDDevice25newPrimaryUsagePageNumberEv"
+        ]
+      },
+      {
+        "slot": 284,
+        "symbols": [
+          "___cxa_pure_virtual"
+        ]
+      },
+      {
+        "slot": 285,
+        "symbols": [
+          "__ZN11IOHIDDevice12handleReportEP18IOMemoryDescriptor15IOHIDReportTypej"
+        ]
+      },
+      {
+        "slot": 286,
+        "symbols": [
+          "__ZN11IOHIDDevice9getReportEP18IOMemoryDescriptor15IOHIDReportTypej"
+        ]
+      },
+      {
+        "slot": 287,
+        "symbols": [
+          "__ZN11IOHIDDevice9setReportEP18IOMemoryDescriptor15IOHIDReportTypej"
+        ]
+      },
+      {
+        "slot": 288,
+        "symbols": [
+          "__ZNK11IOHIDDevice33getMemoryWithCurrentElementValuesEv"
+        ]
+      },
+      {
+        "slot": 289,
+        "symbols": [
+          "__ZN11IOHIDDevice15registerElementEP19IOHIDElementPrivatePj"
+        ]
+      },
+      {
+        "slot": 290,
+        "symbols": [
+          "__ZN11IOHIDDevice18startEventDeliveryEP15IOHIDEventQueuejj"
+        ]
+      },
+      {
+        "slot": 291,
+        "symbols": [
+          "__ZN11IOHIDDevice17stopEventDeliveryEP15IOHIDEventQueuej"
+        ]
+      },
+      {
+        "slot": 292,
+        "symbols": [
+          "__ZN11IOHIDDevice18checkEventDeliveryEP15IOHIDEventQueuejPb"
+        ]
+      },
+      {
+        "slot": 293,
+        "symbols": [
+          "__ZN11IOHIDDevice19updateElementValuesEPjj"
+        ]
+      },
+      {
+        "slot": 294,
+        "symbols": [
+          "__ZN11IOHIDDevice17postElementValuesEPjj"
+        ]
+      },
+      {
+        "slot": 295,
+        "symbols": [
+          "__ZNK11IOHIDDevice21newSerialNumberStringEv"
+        ]
+      },
+      {
+        "slot": 296,
+        "symbols": [
+          "__ZNK11IOHIDDevice19newLocationIDNumberEv"
+        ]
+      },
+      {
+        "slot": 297,
+        "symbols": [
+          "__ZN11IOHIDDevice9getReportEP18IOMemoryDescriptor15IOHIDReportTypejjP15IOHIDCompletion"
+        ]
+      },
+      {
+        "slot": 298,
+        "symbols": [
+          "__ZN11IOHIDDevice9setReportEP18IOMemoryDescriptor15IOHIDReportTypejjP15IOHIDCompletion"
+        ]
+      },
+      {
+        "slot": 299,
+        "symbols": [
+          "__ZNK11IOHIDDevice23newVendorIDSourceNumberEv"
+        ]
+      },
+      {
+        "slot": 300,
+        "symbols": [
+          "__ZNK11IOHIDDevice20newCountryCodeNumberEv"
+        ]
+      },
+      {
+        "slot": 301,
+        "symbols": [
+          "__ZN11IOHIDDevice20handleReportWithTimeEyP18IOMemoryDescriptor15IOHIDReportTypej"
+        ]
+      },
+      {
+        "slot": 302,
+        "symbols": [
+          "__ZNK11IOHIDDevice23newReportIntervalNumberEv"
+        ]
+      },
+      {
+        "slot": 303,
+        "symbols": [
+          "__ZN11IOHIDDevice25handleReportWithTimeAsyncEyP18IOMemoryDescriptor15IOHIDReportTypejjP15IOHIDCompletion"
+        ]
+      },
+      {
+        "slot": 304,
+        "symbols": [
+          "__ZN11IOHIDDevice19newDeviceUsagePairsEv"
+        ]
+      },
+      {
+        "slot": 305,
+        "symbols": [
+          "__ZN11IOHIDDevice15createInterfaceEj"
+        ]
+      },
+      {
+        "slot": 306,
+        "symbols": [
+          "__ZN11IOHIDDevice16destroyInterfaceEj"
+        ]
+      },
+      {
+        "slot": 307,
+        "symbols": [
+          "__ZN11IOHIDDevice10conformsToEjj"
+        ]
+      },
+      {
+        "slot": 308,
+        "symbols": [
+          "__ZN11IOHIDDevice14completeReportEP8OSActionij"
+        ]
+      },
+      {
+        "slot": 309,
+        "symbols": [
+          "__ZN11IOHIDDevice19updateElementValuesEPjjjjP15IOHIDCompletionP24IOBufferMemoryDescriptor"
+        ]
+      },
+      {
+        "slot": 310,
+        "symbols": [
+          "__ZN11IOHIDDevice17postElementValuesEPjjjjP15IOHIDCompletion"
+        ]
+      },
+      {
+        "slot": 311,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice18Ev"
+        ]
+      },
+      {
+        "slot": 312,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice19Ev"
+        ]
+      },
+      {
+        "slot": 313,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice20Ev"
+        ]
+      },
+      {
+        "slot": 314,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice21Ev"
+        ]
+      },
+      {
+        "slot": 315,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice22Ev"
+        ]
+      },
+      {
+        "slot": 316,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice23Ev"
+        ]
+      },
+      {
+        "slot": 317,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice24Ev"
+        ]
+      },
+      {
+        "slot": 318,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice25Ev"
+        ]
+      },
+      {
+        "slot": 319,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice26Ev"
+        ]
+      },
+      {
+        "slot": 320,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice27Ev"
+        ]
+      },
+      {
+        "slot": 321,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice28Ev"
+        ]
+      },
+      {
+        "slot": 322,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice29Ev"
+        ]
+      },
+      {
+        "slot": 323,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice30Ev"
+        ]
+      },
+      {
+        "slot": 324,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice31Ev"
+        ]
+      },
+      {
+        "slot": 325,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice32Ev"
+        ]
+      },
+      {
+        "slot": 326,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice33Ev"
+        ]
+      },
+      {
+        "slot": 327,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice34Ev"
+        ]
+      },
+      {
+        "slot": 328,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice35Ev"
+        ]
+      },
+      {
+        "slot": 329,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice36Ev"
+        ]
+      },
+      {
+        "slot": 330,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice37Ev"
+        ]
+      },
+      {
+        "slot": 331,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice38Ev"
+        ]
+      },
+      {
+        "slot": 332,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice39Ev"
+        ]
+      },
+      {
+        "slot": 333,
+        "symbols": [
+          "__ZN11IOHIDDevice22_RESERVEDIOHIDDevice40Ev"
+        ]
+      }
+    ],
+    "first_slot": {
+      "target_offset": 62537616,
+      "cache_level": 0,
+      "diversity": 14193,
+      "address_diversity": true,
+      "key": 0,
+      "authenticated": true,
+      "resolved_target_address": "0xfffffe000aba7f90",
+      "exact_symbols": [
+        "__ZN11IOHIDDeviceD1Ev"
+      ]
+    },
+    "max_valid_pointer": 0,
+    "imports_count": 0,
+    "imports_format": 1,
+    "symbols_format": 0
+  },
+  "kernelcache_modified": false
+}

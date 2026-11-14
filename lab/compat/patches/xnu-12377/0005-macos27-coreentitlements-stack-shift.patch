@@ -1,0 +1,18 @@
+diff --git a/osfmk/arm64/nabu_platform_stubs.c b/osfmk/arm64/nabu_platform_stubs.c
+index 0d3281e4..08a2ff42 100644
+--- a/osfmk/arm64/nabu_platform_stubs.c
++++ b/osfmk/arm64/nabu_platform_stubs.c
+@@ -8,5 +8,12 @@
+ #include <arm/machine_routines.h>
+ #include <arm/pmap.h>
+ 
++/*
++ * CoreEntitlements in macOS 27.3 expects PAGE_SHIFT_CONST to describe the
++ * kernel stack allocation alignment. Nabu uses 4 KiB pages but 8 KiB-aligned
++ * stacks, so its stack-bound check needs a shift of 13, not PAGE_SHIFT (12).
++ */
++const uint32_t unixnu_kernel_stack_shift = 13;
++
+ extern void CleanPoC_DcacheRegion_Force(vm_offset_t va, size_t length);
+ 
+ /* "nohid": the Apple variant skips a HID-register workaround. Kryo has none. */

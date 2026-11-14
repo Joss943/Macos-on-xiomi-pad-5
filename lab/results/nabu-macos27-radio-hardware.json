@@ -1,0 +1,24 @@
+{
+  "schema": "nabu-macos27-radio-hardware-v1",
+  "target": "Xiaomi Pad 5 nabu / macOS 27.3",
+  "observed_at": "2026-11-13",
+  "collection": "ADB, lecture seule; aucune partition écrite",
+  "device": {
+    "model": "21051182G",
+    "product": "nabu_global"
+  },
+  "wifi": {
+    "netdev": "wlan0",
+    "device_tree_node": "qcom,cnss-qca6390@a0000000",
+    "platform_node": "18800000.qcom,icnss",
+    "android_kernel_module": "wlan"
+  },
+  "bluetooth": {
+    "device_tree_platform_node": "vendor:bt_wcn3990"
+  },
+  "limits": [
+    "The Android device tree and module names identify hardware; they do not demonstrate macOS driver support.",
+    "No MAC address, serial number, firmware image, or proprietary driver binary is included.",
+    "Linux ath11k QCA6390 support is a hardware reference, not an XNU implementation."
+  ]
+}

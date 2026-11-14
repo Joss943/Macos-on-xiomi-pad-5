@@ -1,0 +1,74 @@
+{
+  "schema": "nabu-macos27-prelink-readiness-v1",
+  "checked_on": "2026-11-14",
+  "target": "macOS 27.3 (26C5035r) kernelcache on Xiaomi Pad 5 (nabu)",
+  "kernel_build": {
+    "run": "https://github.com/Joss943/Macos-on-xiomi-pad-5/actions/runs/43590482152",
+    "commit": "6f1f157",
+    "series": "0001-0006 (0006 = -Wl,-add_split_seg_info -Wl,-kernel, NABU only)",
+    "kernel_sha256": "faec1a9c94331dd525fbe7981cdfcae706dfb34c1306515990d47a01aa05a33a",
+    "final_link_line": "contains -Wl,-add_split_seg_info -Wl,-kernel",
+    "LC_SEGMENT_SPLIT_INFO": true,
+    "LC_DYLD_CHAINED_FIXUPS": false,
+    "ci_check": "failed on purpose: -Wl,-kernel does not make ld emit chained fixups for plain arm64; kernel still has 115805 LC_DYSYMTAB local relocations",
+    "split_references": {"references": 441825, "out_of_range": 0, "duplicate_sites": 0}
+  },
+  "local_relocations": {
+    "probe": "C:/nb/locrel_probe.py",
+    "count": 115805,
+    "shape": "all ARM64_RELOC_UNSIGNED, length 3, pcrel 0, extern 0, not scattered",
+    "r_address_base": "0xfffffe0007004000 (first segment)",
+    "agreement": "115805/115805 sites equal a split-seg kind-2 site and the stored value equals the linker target"
+  },
+  "xnuprelink_changes": {
+    "base_revision": "UniXNU/XnuPrelink 440589b (+ macos27-optional-functions-fixture.patch)",
+    "patch": "lab/compat/patches/xnu-prelink/arm64-local-relocations.patch",
+    "kc_image.py": "fixups() reports classic local relocations of an MH_EXECUTE without LC_DYLD_CHAINED_FIXUPS as plain rebases; other shapes, duplicates and out-of-image targets raise",
+    "fileset_segmented.py": [
+      "entry LC_DYSYMTAB locreloff/nlocrel zeroed once the relocations became root chain entries (same treatment as a dropped LC_DYLD_CHAINED_FIXUPS)",
+      "kernel corecrypto HMAC resealing skipped only when neither the native kernel nor the replaced com.apple.kernel entry carries __fips_hmacs; macOS 27.3 seals corecrypto in com.apple.kec.corecrypto (__fips_hmacs 0x20), handled by seal_components"
+    ],
+    "tests": "python -m unittest discover -p 'test_*.py': 69 tests OK (4 new in test_kc_image_local_relocations.py; they fail without the change); patch applies to a clean 440589b clone"
+  },
+  "matcher": {
+    "inputs": {
+      "kernelcache_sha256": "d1003b5143ffd88439b4d45b6017f587171cfe6855660bed05370a2ea5db9fe9",
+      "native_sha256": "faec1a9c94331dd525fbe7981cdfcae706dfb34c1306515990d47a01aa05a33a",
+      "reference_sha256": "12faebabbdceee4a191921aa70d55a0594023d2583517a853976151f4b5a4e7a"
+    },
+    "functions": "8575/23976", "data": 156, "kext_targets_named": "1635/3856",
+    "conflicts": {"double-bind": 6},
+    "validated": false
+  },
+  "emission_strict_apfs": {
+    "command": "emit_prelink.py --kernel run23 --prelinked kernelcache.mac17j.decompressed --root com.apple.filesystems.apfs --slide 0 --fileset-map xnu-nabu-run23-mac27-map.json --fileset-reference vmapple run19",
+    "structural_stages_passed": ["closure", "placement (__TEXT 0xfffffe000700c000, __DATA_CONST 0xfffffe0007dc4000, ...)", "split-seg relocation", "native chain rewrite", "entry header", "component sealing"],
+    "stopped_at": "write_candidate: Incomplete pairing: 7455 unresolved references",
+    "closure": ["com.apple.driver.AppleEffaceableStorage", "com.apple.filesystems.apfs", "com.apple.iokit.CoreAnalyticsFamily", "com.apple.iokit.IOCryptoAcceleratorFamily", "com.apple.iokit.IOStorageFamily", "com.apple.kec.corecrypto", "com.apple.kext.CoreTrust", "com.apple.security.AppleImage4", "com.apple.security.Image4"],
+    "unresolved_by_kext": {
+      "com.apple.filesystems.apfs": {"refs": 2404, "targets": 585},
+      "com.apple.iokit.IOStorageFamily": {"refs": 2305, "targets": 286},
+      "com.apple.iokit.CoreAnalyticsFamily": {"refs": 853, "targets": 259},
+      "com.apple.iokit.IOCryptoAcceleratorFamily": {"refs": 614, "targets": 236},
+      "com.apple.security.AppleImage4": {"refs": 442, "targets": 262},
+      "com.apple.security.Image4": {"refs": 417, "targets": 238},
+      "com.apple.driver.AppleEffaceableStorage": {"refs": 408, "targets": 229},
+      "com.apple.kec.corecrypto": {"refs": 11, "targets": 11},
+      "com.apple.kext.CoreTrust": {"refs": 1, "targets": 1}
+    },
+    "candidate_written": false,
+    "candidate_sha256_not_written": "d4992b0e868275940d77681d5c7114de9347d0f9450e4a7c3e0af84ba72cadc8",
+    "report": "work/xnu-nabu-run23/NOT-BOOTABLE-apfs-strict.json (local)",
+    "allow_missing": "not used: it requires a _unixnu_fileset_unmapped trap symbol in the kernel, the fake-symbol path the brief forbids"
+  },
+  "next_blocker": "kext-facing name coverage (1635/3856). Leads: a symbol-bearing reference closer to 26C5035r (KDK kernel for 27.3, needs an Apple developer sign-in by the owner), resolving the 6 double-bind conflicts, then the full-cache __PRELINK_TEXT space (0x188680 needed vs 0x138000 free).",
+  "status": {
+    "1_code_modified": true,
+    "2_kernel_compiled": "yes (run 23, split-seg verified; local relocations, not chained fixups)",
+    "3_prelink_emitted": "no: emission passes every structural stage, stops on 7455 unresolved references",
+    "4_bootable_image": false,
+    "5_boot_observed_on_tablet": false,
+    "6_touch_wifi_tested_on_hardware": false
+  },
+  "tablet_written": false
+}

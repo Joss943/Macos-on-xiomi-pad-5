@@ -1,0 +1,50 @@
+{
+  "schema": "nabu-macos27-prelink-readiness-v1",
+  "checked_on": "2026-11-14",
+  "target": "macOS 27.3 (26C5035r) kernelcache on Xiaomi Pad 5 (nabu)",
+  "finding": "fileset_match.vtable_slots accepted only IA-signed slots: the plain arm64 NABU kernel had 0 diversities and 0 vtable binds (reference pass original<->VMAPPLE: 1648 vtable, 1693 pac-checked-shape)",
+  "change": {
+    "patch": "lab/compat/patches/xnu-prelink/plain-arm64-vtable-layouts.patch (after macos27-optional-functions-fixture.patch and arm64-local-relocations.patch, on XnuPrelink 440589b)",
+    "rule": "a no-PAC native table borrows the PAC layout of the same-named __ZTV table of the arm64e reference only if its slot count is identical and the name is unambiguous; otherwise the table is skipped",
+    "tests": "73 OK (4 new in test_plain_vtables.py)"
+  },
+  "inputs": {
+    "kernelcache_sha256": "d1003b5143ffd88439b4d45b6017f587171cfe6855660bed05370a2ea5db9fe9",
+    "native_sha256": "faec1a9c94331dd525fbe7981cdfcae706dfb34c1306515990d47a01aa05a33a",
+    "reference_sha256": "12faebabbdceee4a191921aa70d55a0594023d2583517a853976151f4b5a4e7a"
+  },
+  "matcher": {
+    "before": {"functions": "8575/23976", "data": 156, "kext_targets_named": "1635/3856", "conflicts": {"double-bind": 6}},
+    "after": {"functions": "9413/23976", "vtable_binds": 860, "data": 263, "kext_targets_named": "1958/3856", "conflicts": {"double-bind": 6, "vtable-correction": 1}},
+    "validated": false
+  },
+  "emission_strict_apfs": {
+    "unresolved_before": 7455,
+    "unresolved_after": 1001,
+    "distinct_targets": 467,
+    "targets_by_kind": {"function start": 398, "data": 69},
+    "refs_by_original_section": {"__TEXT_EXEC,__text": 743, "__DATA,__data": 215, "__DATA,__common": 21, "__DATA_CONST,__const": 13, "__TEXT_EXEC,__hib_text": 7, "__TEXT_BOOT_EXEC,__bootcode": 2},
+    "unresolved_by_kext": {
+      "com.apple.filesystems.apfs": 535, "com.apple.iokit.IOStorageFamily": 103, "com.apple.iokit.CoreAnalyticsFamily": 96,
+      "com.apple.security.AppleImage4": 87, "com.apple.security.Image4": 59, "com.apple.iokit.IOCryptoAcceleratorFamily": 58,
+      "com.apple.driver.AppleEffaceableStorage": 51, "com.apple.kec.corecrypto": 11, "com.apple.kext.CoreTrust": 1
+    },
+    "candidate_written": false
+  },
+  "name_transfer_audit": {
+    "method": "reference pairing (original<->VMAPPLE) names transferred to native by unique symbol, compared with native binds made independently",
+    "calls": {"agree": 256, "disagree": 0, "new_unresolved": 5},
+    "string": {"agree": 1608, "disagree": 0, "new_unresolved": 1},
+    "call-sites": {"agree": 4, "disagree": 0, "new_unresolved": 8},
+    "vtable": {"agree": 858, "disagree": 30, "new_unresolved": 34},
+    "decision": "not enabled: safe methods would name only ~15 unresolved targets; vtable transfer disagrees 3.4% and is rejected"
+  },
+  "next_lead": "Kernel Debug Kit 26C5035r (dortania/KdkSupportPkg release 26C5035r, Kernel_Debug_Kit_27.2_build_26C5035r.dmg, 1.2 GB, sha256 529ba51a476e1f22c34bda3b3eff357b70bf19a6869d4542c66201cbf2eaa8ff): if it carries the symbol-bearing kernel of the Mac17,11 collection, kext-facing targets can be named from symbols instead of inferred",
+  "status": {
+    "3_prelink_emitted": "no: 1001 unresolved references remain",
+    "4_bootable_image": false,
+    "5_boot_observed_on_tablet": false,
+    "6_touch_wifi_tested_on_hardware": false
+  },
+  "tablet_written": false
+}
