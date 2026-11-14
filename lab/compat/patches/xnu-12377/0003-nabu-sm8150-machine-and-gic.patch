@@ -1,3 +1,16 @@
+diff --git a/config/MASTER b/config/MASTER
+index 1b974800..53c1138c 100644
+--- a/config/MASTER
++++ b/config/MASTER
+@@ -330,6 +330,8 @@ options   CONFIG_PMAP_PPL			# <config_pmap_ppl>
+ 
+ options   NOS_ARM_ASM			# <nos_arm_asm>
+ options   NOS_ARM_PMAP			# <nos_arm_pmap>
++# The amcc_rorgn sources are not published; only Apple SoC configs with KTRR/CTRR use them.
++options   NOS_ARM_RORGN			# <nos_arm_rorgn>
+ 
+ # support dynamic signing of code
+ #
 diff --git a/config/MASTER.arm64.MacOSX b/config/MASTER.arm64.MacOSX
 index 69219cc4..8da90a2c 100644
 --- a/config/MASTER.arm64.MacOSX
@@ -180,6 +193,34 @@ index 6aa6fe46..2032c367 100644
  
  #if (!CONFIG_KERNEL_INTEGRITY || (CONFIG_KERNEL_INTEGRITY && !defined(KERNEL_INTEGRITY_WT)))
  	/* Watchtower
+diff --git a/osfmk/conf/files.arm64 b/osfmk/conf/files.arm64
+index 878b5154..05e858ac 100644
+--- a/osfmk/conf/files.arm64
++++ b/osfmk/conf/files.arm64
+@@ -21,7 +21,7 @@ osfmk/arm64/sptm/pmap/pmap_iommu.c	optional nos_arm_asm config_sptm
+ osfmk/arm64/sptm/pmap/pmap_misc.c	optional nos_arm_asm config_sptm
+ osfmk/arm64/sptm/pmap/pmap_ppl_interface.c	optional nos_arm_asm config_sptm
+ osfmk/arm64/sptm/start_sptm.s		optional nos_arm_asm config_sptm
+-osfmk/arm64/amcc_rorgn_sptm.c		optional nos_arm_asm config_sptm
++osfmk/arm64/amcc_rorgn_sptm.c		optional nos_arm_asm nos_arm_rorgn config_sptm
+ osfmk/arm64/sptm/arm_init_sptm.c	optional config_sptm
+ osfmk/arm64/sop.c			optional config_sptm
+ 
+@@ -35,10 +35,10 @@ osfmk/arm64/WKdmCompress_4k.s	standard
+ osfmk/arm64/WKdmData.s		standard
+ osfmk/arm64/lz4_decode_arm64.s  standard
+ osfmk/arm64/lz4_encode_arm64.s  standard
+-osfmk/arm64/amcc_rorgn_ppl.c optional nos_arm_asm config_pmap_ppl
+-osfmk/arm64/amcc_rorgn_ppl_amcc.c optional nos_arm_asm config_pmap_ppl
+-osfmk/arm64/amcc_rorgn_common.c optional nos_arm_asm
+-osfmk/arm64/amcc_rorgn_pv_ctrr.c optional nos_arm_asm
++osfmk/arm64/amcc_rorgn_ppl.c optional nos_arm_asm nos_arm_rorgn config_pmap_ppl
++osfmk/arm64/amcc_rorgn_ppl_amcc.c optional nos_arm_asm nos_arm_rorgn config_pmap_ppl
++osfmk/arm64/amcc_rorgn_common.c optional nos_arm_asm nos_arm_rorgn
++osfmk/arm64/amcc_rorgn_pv_ctrr.c optional nos_arm_asm nos_arm_rorgn
+ osfmk/arm64/bcopy.s standard
+ osfmk/arm64/bzero.s standard
+ osfmk/arm/caches.c		standard
 diff --git a/pexpert/arm/pe_fiq.c b/pexpert/arm/pe_fiq.c
 index 3ad743fc..82b7cebd 100644
 --- a/pexpert/arm/pe_fiq.c
