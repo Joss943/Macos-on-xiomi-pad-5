@@ -5,3 +5,4 @@
 0005-macos27-coreentitlements-stack-shift.patch
 0006-nabu-link-kernel-with-split-seg-info.patch
 0007-macos27-vfs-content-protection-and-image4-v2-kpis.patch
+0008-macos27-cluster-update-range-with-callback.patch

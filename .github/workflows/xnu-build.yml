@@ -114,10 +114,13 @@ jobs:
               echo "$links" | grep -qE -- "-Wl,$flag( |$)" \
                 || { echo "::error::final NABU link has no -Wl,$flag (or link line not logged)"; exit 1; }
             done
-            for lc in LC_SEGMENT_SPLIT_INFO LC_DYLD_CHAINED_FIXUPS; do
-              grep -q "$lc" "loadcmds-${{ matrix.name }}.txt" \
-                || { echo "::error::kernel.development.nabu has no $lc"; exit 1; }
-            done
+            grep -q LC_SEGMENT_SPLIT_INFO "loadcmds-${{ matrix.name }}.txt" \
+              || { echo "::error::kernel.development.nabu has no LC_SEGMENT_SPLIT_INFO"; exit 1; }
+            # ld emits classic local relocations, not chained fixups, for plain
+            # arm64 (runs 22-23); XnuPrelink reads them (arm64-local-relocations.patch).
+            grep -q LC_DYLD_CHAINED_FIXUPS "loadcmds-${{ matrix.name }}.txt" \
+              || grep -E '^ *nlocrel [1-9]' "loadcmds-${{ matrix.name }}.txt" \
+              || { echo "::error::kernel.development.nabu has neither chained fixups nor local relocations"; exit 1; }
           fi
 
       - name: Replay failed compiles one at a time
