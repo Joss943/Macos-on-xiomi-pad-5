@@ -1,0 +1,90 @@
+name: UEFI boot chain (UniXNU + DarwinBoot)
+
+# Builds the open-source boot chain used on nabu: UniXNU.efi (boot manager)
+# and DarwinBoot.efi (XNU loader), at pinned revisions, then runs UniXNU's
+# QEMU smoke scenarios. No Apple file is used or published here; the macOS
+# kernelcache stays on the developer's machine.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/native-sonoma-research
+    paths:
+      - '.github/workflows/uefi-build.yml'
+
+jobs:
+  uefi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      UNIXNU_COMMIT: d8210e0
+      DARWINBOOT_COMMIT: 3c75734
+      MU_BRANCH: release/202608
+    steps:
+      - name: Install tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang lld llvm build-essential uuid-dev nasm python3 \
+            qemu-system-arm qemu-efi-aarch64 mtools device-tree-compiler
+          clang --version | head -1
+
+      - name: Fetch pinned sources
+        run: |
+          set -euo pipefail
+          git clone -q https://github.com/UniXNU/UniXNU.git unixnu
+          git -C unixnu checkout -q --detach "$UNIXNU_COMMIT"
+          git clone -q https://github.com/UniXNU/DarwinBoot.git unixnu/drivers/DarwinBoot
+          git -C unixnu/drivers/DarwinBoot checkout -q --detach "$DARWINBOOT_COMMIT"
+          git clone -q --depth 1 -b "$MU_BRANCH" https://github.com/microsoft/mu_basecore.git unixnu/package/Mu_Basecore
+          git -C unixnu/package/Mu_Basecore submodule update -q --init --depth 1 \
+            MdePkg/Library/BaseFdtLib/libfdt MdePkg/Library/MipiSysTLib/mipisyst BaseTools/Source/C/BrotliCompress/brotli
+          echo "UniXNU     $(git -C unixnu rev-parse HEAD)"
+          echo "DarwinBoot $(git -C unixnu/drivers/DarwinBoot rev-parse HEAD)"
+          echo "Mu         $(git -C unixnu/package/Mu_Basecore rev-parse HEAD)"
+
+      - name: Build UniXNU package
+        working-directory: unixnu/package
+        run: CLANG_BIN=/usr/bin/ ./build.sh -b DEBUG
+
+      - name: Build DarwinBoot
+        working-directory: unixnu
+        run: |
+          set -euo pipefail
+          CLANG_BIN=/usr/bin/ CONF_PATH=$PWD/package/Build/Conf UNIXNU_EDK2=$PWD/package/Mu_Basecore \
+            bash scripts/build-darwinboot.sh
+          find . -name DarwinBoot.efi -path '*AARCH64*' | head -3
+
+      - name: QEMU smoke scenarios
+        id: smoke
+        continue-on-error: true
+        working-directory: unixnu/package
+        run: JOBS=4 bash Scripts/smoke.sh 2>&1 | tee smoke.log
+
+      - name: Collect binaries
+        if: always()
+        run: |
+          set -eu
+          mkdir -p out
+          cp unixnu/package/Build/Out/AARCH64-DEBUG/*.efi out/ 2>/dev/null || true
+          db=$(find unixnu -name DarwinBoot.efi -path '*AARCH64*' | head -1)
+          [ -n "$db" ] && cp "$db" out/
+          cp unixnu/package/smoke.log out/ 2>/dev/null || true
+          cp -r unixnu/package/Build/Smoke out/smoke 2>/dev/null || true
+          rm -rf out/smoke/esp
+          (cd out && sha256sum *.efi > SHA256SUMS) || true
+          {
+            echo "### UEFI build"
+            echo '```'
+            cat out/SHA256SUMS 2>/dev/null
+            echo "smoke: ${{ steps.smoke.outcome }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uefi-boot-chain
+          retention-days: 14
+          path: out/
