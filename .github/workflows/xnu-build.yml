@@ -93,8 +93,10 @@ jobs:
           name="kernel.development.$(echo "$MACHINE_CONFIG" | tr A-Z a-z)"
           log="build-${{ matrix.name }}.log"
           kernel="$(find dxb/fakeroot dxb/build -name "$name" -type f -not -path '*.dSYM/*' 2>/dev/null | head -1)"
-          # Final link = the command that writes the unstripped kernel image.
-          links="$(grep -E -- "-o [^ ]*${name}(\.unstripped)?( |$)" "$log" || true)"
+          # Final link = the clang++ command that writes <kernel>.unstripped.noctf
+          # (run 20 log, line 7641795). dsymutil also names that file, so keep
+          # only the clang++ linker invocation.
+          links="$(grep -E -- "clang\+\+ .*-o [^ ]*${name}\.unstripped\.noctf( |$)" "$log" || true)"
           {
             echo "### Final kernel link ($name)"
             echo '```'
