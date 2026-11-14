@@ -32,6 +32,21 @@ L'émission s'est arrêtée sur la liaison AMFI vers `_unixnu_kernel_stack_shift
 
 Les résultats de la compilation NABU suivante sont dans l'onglet Actions du dépôt, workflow « XNU 12377 compile (macOS runner) », avec le journal complet et un résumé des erreurs en artefact.
 
+### Prélink macOS 27.3 — métadonnées split-segment (patch 0006, 14 novembre 2026)
+
+Le noyau du run 20 contient `_unixnu_kernel_stack_shift`, mais la relocalisation du prélink échoue : le Mach-O nabu ne porte pas d'information split-segment. Cause trouvée dans `makedefs/MakeInc.def` : `-Wl,-add_split_seg_info` n'est ajouté que par `LDFLAGS_KERNEL_ONLY_SUBARCH_arm64e` et `..._x86_64`. Le profil NABU garde `ARCH_STRING_FOR_CURRENT_MACHINE_CONFIG=arm64` (patch 0003), et `LDFLAGS_KERNEL_ONLY_SUBARCH_arm64` n'existe pas : le flag n'atteint jamais le link final. Le patch [`0006-nabu-link-kernel-with-split-seg-info.patch`](lab/compat/patches/xnu-12377/0006-nabu-link-kernel-with-split-seg-info.patch) définit cette variable uniquement quand `CURRENT_MACHINE_CONFIG=NABU`. `-Wl,-kernel`, présent dans les règles arm64e et x86_64, n'est volontairement pas ajouté : son effet sur le profil arm64 n'est pas vérifié.
+
+| Niveau | État |
+|---|---|
+| 1. Code modifié | **Fait.** Série 0001–0006 appliquée deux fois sur un clone propre de `ac9718fb` : même arbre (`26b6bd8c…`), `git diff --check` propre. |
+| 2. Noyau compilé avec 0006 | **Pas encore vérifié.** Le workflow contrôle désormais (étape « Check split-segment info ») que la ligne de link NABU contient `-add_split_seg_info` (`VERBOSE=YES`) et que le Mach-O porte `LC_SEGMENT_SPLIT_INFO`, et échoue sinon. |
+| 3. Prélink émis | **Non.** Matcher et émission à relancer sur le nouveau noyau (`split_references()`, conflits, hashes). La carte du run 20 n'est pas validée. |
+| 4. Image amorçable | **Non.** |
+| 5. Démarrage sur la tablette | **Aucun.** Bootloader observé verrouillé, rien flashé. |
+| 6. Tactile et Wi‑Fi sur matériel | **Non testés.** |
+
+Rapport : [`lab/results/macos27-split-seg-0006-2026-11-14.json`](lab/results/macos27-split-seg-0006-2026-11-14.json).
+
 ### Compiler XNU nabu soi-même
 
 Sur un Mac avec Xcode 26 (SDK macOS 26) :

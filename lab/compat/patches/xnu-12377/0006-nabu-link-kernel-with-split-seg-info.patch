@@ -1,0 +1,29 @@
+From: nabu port
+Subject: [PATCH 0006] nabu: link the arm64 kernel with -add_split_seg_info
+
+NABU keeps ARCH_STRING_FOR_CURRENT_MACHINE_CONFIG=arm64 (0003), so the
+LDFLAGS_KERNEL_ONLY_SUBARCH_arm64e/x86_64 rules that pass -add_split_seg_info
+never reach its final kernel link. XnuPrelink needs that split-segment
+information to relocate kernel.development.nabu into a kernel collection.
+Only CURRENT_MACHINE_CONFIG=NABU is affected.
+---
+diff --git a/makedefs/MakeInc.def b/makedefs/MakeInc.def
+index 87e1824..42707e1 100644
+--- a/makedefs/MakeInc.def
++++ b/makedefs/MakeInc.def
+@@ -1131,6 +1131,15 @@ LDFLAGS_KERNEL_ONLY_SUBARCH_x86_64 = \
+ 	-Wl,-kernel
+ LDFLAGS_KERNEL_ONLY_SUBARCH_x86_64h = $(LDFLAGS_KERNEL_ONLY_SUBARCH_x86_64)
+ 
++# NABU links plain arm64 (ARCH_STRING_FOR_CURRENT_MACHINE_CONFIG stays arm64,
++# see 0003), so neither SUBARCH rule above applies to it. Emit split-segment
++# info so the kernel can be relocated when it is placed in a kernel collection.
++# Scoped to NABU: every other arm64 config builds as arm64e and is unchanged.
++ifeq ($(CURRENT_MACHINE_CONFIG),NABU)
++LDFLAGS_KERNEL_ONLY_SUBARCH_arm64 = \
++	-Wl,-add_split_seg_info
++endif
++
+ LDFLAGS_KERNEL	= $(LDFLAGS_KERNEL_GEN) \
+ 		  $(LDFLAGS_KERNEL_SDK) \
+ 		  $($(addsuffix $(CURRENT_ARCH_CONFIG),ARCH_FLAGS_)) \

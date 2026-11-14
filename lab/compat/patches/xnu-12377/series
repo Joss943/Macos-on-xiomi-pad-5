@@ -3,3 +3,4 @@
 0003-nabu-sm8150-machine-and-gic.patch
 0004-nabu-psci-smp-and-platform-expert.patch
 0005-macos27-coreentitlements-stack-shift.patch
+0006-nabu-link-kernel-with-split-seg-info.patch

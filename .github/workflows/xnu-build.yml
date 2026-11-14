@@ -78,9 +78,40 @@ jobs:
       - name: Build
         id: build
         working-directory: dxb
+        env:
+          # XNU's makedefs print full command lines with VERBOSE=YES, so the
+          # final kernel link can be checked for its flags below.
+          VERBOSE: 'YES'
         run: |
           set -o pipefail
           bash build.sh 2>&1 | tee "$GITHUB_WORKSPACE/build-${{ matrix.name }}.log"
+
+      - name: Check split-segment info on the final kernel link (patch 0006)
+        if: steps.build.outcome == 'success'
+        run: |
+          set -euo pipefail
+          name="kernel.development.$(echo "$MACHINE_CONFIG" | tr A-Z a-z)"
+          log="build-${{ matrix.name }}.log"
+          kernel="$(find dxb/fakeroot dxb/build -name "$name" -type f -not -path '*.dSYM/*' 2>/dev/null | head -1)"
+          # Final link = the command that writes the unstripped kernel image.
+          links="$(grep -E -- "-o [^ ]*${name}(\.unstripped)?( |$)" "$log" || true)"
+          {
+            echo "### Final kernel link ($name)"
+            echo '```'
+            if [ -n "$links" ]; then echo "$links" | cut -c1-4000; else echo "(no link command found in log: VERBOSE output missing)"; fi
+            echo '```'
+            echo "### Split-segment load command"
+            echo '```'
+            otool -l "$kernel" | grep -A3 -E 'LC_SEGMENT_SPLIT_INFO|LC_DYLD_INFO' || echo "(none)"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          otool -l "$kernel" > "loadcmds-${{ matrix.name }}.txt"
+          if [ "$MACHINE_CONFIG" = NABU ]; then
+            echo "$links" | grep -q -- '-add_split_seg_info' \
+              || { echo "::error::final NABU link has no -add_split_seg_info (or link line not logged)"; exit 1; }
+            grep -q LC_SEGMENT_SPLIT_INFO "loadcmds-${{ matrix.name }}.txt" \
+              || { echo "::error::kernel.development.nabu has no LC_SEGMENT_SPLIT_INFO"; exit 1; }
+          fi
 
       - name: Replay failed compiles one at a time
         if: failure() && steps.build.outcome == 'failure'
@@ -95,7 +126,8 @@ jobs:
             --json "summary-${{ matrix.name }}.json" | tee -a "$GITHUB_STEP_SUMMARY" || true
 
       - name: Inspect the kernel and scan it for instructions Kryo 485 cannot run
-        if: steps.build.outcome == 'success'
+        # always(): still keep the kernel artifact when the split-seg check fails.
+        if: always() && steps.build.outcome == 'success'
         run: |
           set -euo pipefail
           name="kernel.development.$(echo "$MACHINE_CONFIG" | tr A-Z a-z)"
@@ -146,4 +178,5 @@ jobs:
             summary-${{ matrix.name }}.json
             isa-${{ matrix.name }}.json
             serial-${{ matrix.name }}.log
+            loadcmds-${{ matrix.name }}.txt
             kernel-out/
