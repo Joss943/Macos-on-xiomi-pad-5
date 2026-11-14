@@ -619,6 +619,26 @@ index 878b5154..640b0392 100644
  osfmk/arm/rtclock.c		standard
  osfmk/arm64/status.c		standard
  osfmk/arm/status_shared.c	standard
+diff --git a/osfmk/kern/debug.c b/osfmk/kern/debug.c
+index 48f9405c..948fb7c7 100644
+--- a/osfmk/kern/debug.c
++++ b/osfmk/kern/debug.c
+@@ -2474,12 +2474,13 @@ check_for_failure_injection(failure_injection_stage_t current_stage)
+ static inline void
+ awl_set_scratch_reg_hv_bit(void)
+ {
+-#if defined(__arm64__)
++/* WatchdogDiag0 is an Apple register; Kryo 485 traps on it, so NABU never touches it. */
++#if defined(__arm64__) && !defined(ARM64_BOARD_CONFIG_NABU)
+ #define WATCHDOG_DIAG0     "S3_5_c15_c2_6"
+ 	uint64_t awl_diag0 = __builtin_arm_rsr64(WATCHDOG_DIAG0);
+ 	awl_diag0 |= AWL_HV_ENTRY_FLAG;
+ 	__builtin_arm_wsr64(WATCHDOG_DIAG0, awl_diag0);
+-#endif // defined(__arm64__)
++#endif // defined(__arm64__) && !defined(ARM64_BOARD_CONFIG_NABU)
+ }
+ 
+ void
 diff --git a/osfmk/kern/exclaves.c b/osfmk/kern/exclaves.c
 index 6247d298..8bd6c74f 100644
 --- a/osfmk/kern/exclaves.c
