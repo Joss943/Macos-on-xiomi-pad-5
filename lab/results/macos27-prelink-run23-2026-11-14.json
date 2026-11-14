@@ -26,7 +26,7 @@
     "kc_image.py": "fixups() reports classic local relocations of an MH_EXECUTE without LC_DYLD_CHAINED_FIXUPS as plain rebases; other shapes, duplicates and out-of-image targets raise",
     "fileset_segmented.py": [
       "entry LC_DYSYMTAB locreloff/nlocrel zeroed once the relocations became root chain entries (same treatment as a dropped LC_DYLD_CHAINED_FIXUPS)",
-      "kernel corecrypto HMAC resealing skipped only when neither the native kernel nor the replaced com.apple.kernel entry carries __fips_hmacs; macOS 27.3 seals corecrypto in com.apple.kec.corecrypto (__fips_hmacs 0x20), handled by seal_components"
+      "[published in collection-root-cpusubtype.patch, not in arm64-local-relocations.patch] kernel corecrypto HMAC resealing skipped only when neither the native kernel nor the replaced com.apple.kernel entry carries __fips_hmacs; macOS 27.3 seals corecrypto in com.apple.kec.corecrypto (__fips_hmacs 0x20), handled by seal_components"
     ],
     "tests": "python -m unittest discover -p 'test_*.py': 69 tests OK (4 new in test_kc_image_local_relocations.py; they fail without the change); patch applies to a clean 440589b clone"
   },

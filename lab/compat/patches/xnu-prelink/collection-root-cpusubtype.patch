@@ -1,0 +1,61 @@
+XnuPrelink 440589b (+ fixture, local-relocation and vtable patches): kernel HMAC on macOS collections, root CPU subtype
+
+1. Kernel corecrypto HMAC: resealing is skipped only when neither the native
+   kernel nor the replaced com.apple.kernel entry carries __fips_hmacs (macOS
+   27.3 seals corecrypto in com.apple.kec.corecrypto, handled by
+   seal_components). This change was used from run 23 on but was missing from
+   arm64-local-relocations.patch; it is published here.
+
+2. Root header CPU subtype:
+
+DarwinBoot's ParseKernel requires the MH_FILESET root header and its
+com.apple.kernel entry to carry the same cpusubtype. The NABU kernel is plain
+arm64 (0x0) while the original macOS 27.3 collection header says arm64e
+(0xc0000002), so DarwinBoot would refuse every nabu candidate. The emitter now
+writes the native kernel's subtype into the root header (the collection runs
+that kernel); every original kext entry keeps its own arm64e subtype. A CPU
+type mismatch still stops emission.
+
+Checked with lab/nabu/darwinboot_check.py (offline replica of DarwinBoot
+3c75734): before, rejected (subtype mismatch); after, accepted.
+---
+diff --git a/fileset_segmented.py b/fileset_segmented.py
+index 1bdee73..35f5218 100644
+--- a/fileset_segmented.py
++++ b/fileset_segmented.py
+@@ -298,6 +298,16 @@ class SegmentedEmit(Emit):
+         # corecrypto authenticates the relocated __text bytes in a fileset.
+         code = next(s for s in self.native.sections if s['segment'] == '__TEXT_EXEC' and s['name'] == '__text')
+         seals = [s for s in self.native.sections if s['name'] == '__fips_hmacs']
++        if not seals:
++            # macOS collections seal corecrypto in com.apple.kec.corecrypto
++            # (seal_components), not in the kernel. Skip only when the replaced
++            # kernel entry carried no seal either.
++            old_kernel = Image(self.cache.data, self.cache.entries['com.apple.kernel'][1])
++            if any(s['name'] == '__fips_hmacs' for s in old_kernel.sections):
++                raise ValueError('Original kernel carries a corecrypto HMAC field; the native kernel has none')
++            self.report['corecrypto_hmac_sha256'] = None
++            self.report['corecrypto_hmac_location'] = 'not in kernel (original and native kernels carry no __fips_hmacs)'
++            return
+         if len(seals) != 1 or seals[0]['size'] != 32:
+             raise ValueError('Expected one 32-byte corecrypto HMAC field')
+         code_at = self.layout.translate(code['va']) - self.cache.base
+@@ -384,5 +394,18 @@ class SegmentedEmit(Emit):
+             raise ValueError('Root commands exceed header mapping')
+         self.data[32:limit] = payload + bytes(limit-32-len(payload))
+         struct.pack_into('<II', self.data, 16, len(rebuilt), len(payload))
++        # The collection runs the native kernel: its root header carries the
++        # kernel's CPU subtype. A plain arm64 kernel (subtype 0) in an arm64e
++        # collection keeps every original entry at its own arm64e subtype;
++        # DarwinBoot requires the root and com.apple.kernel subtypes to agree.
++        cpu, subtype = struct.unpack_from('<Ii', self.native.data, 4)
++        root_cpu, root_subtype = struct.unpack_from('<Ii', self.data, 4)
++        if cpu != root_cpu:
++            raise ValueError('Native kernel and collection CPU types differ')
++        if subtype != root_subtype:
++            struct.pack_into('<i', self.data, 8, subtype)
++            self.report['root_cpusubtype'] = {'original': hex(root_subtype & 0xffffffff),
++                                              'written': hex(subtype & 0xffffffff),
++                                              'reason': 'matches the native com.apple.kernel entry'}
+         self.report['native_base'] = hex(self.layout.placements['__TEXT'])
+         self.report['native_fileoff'] = hex(self.fileoff)
