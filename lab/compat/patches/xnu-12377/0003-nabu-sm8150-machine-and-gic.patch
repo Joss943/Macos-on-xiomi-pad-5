@@ -247,10 +247,10 @@ index 75938b56..aacab935 100644
  # Headers installed into System.framework/PrivateHeaders (userspace internal SDK only).
 diff --git a/pexpert/pexpert/arm64/NABU.h b/pexpert/pexpert/arm64/NABU.h
 new file mode 100644
-index 00000000..fa855615
+index 00000000..b82ebe65
 --- /dev/null
 +++ b/pexpert/pexpert/arm64/NABU.h
-@@ -0,0 +1,72 @@
+@@ -0,0 +1,82 @@
 +/*
 + * Xiaomi Pad 5 (nabu / SM8150-AC) generic ARM64 board configuration.
 + * Qualcomm's Cortex-A76/A55 based Kryo cores expose 64-byte cache lines and
@@ -276,6 +276,16 @@ index 00000000..fa855615
 +#define __ARM_V8_CRYPTO_EXTENSIONS__ 1
 +#define __ARM_PAN_AVAILABLE__        1
 +#define __ARM_16K_PG__               1
++
++/*
++ * Kryo 485 (Cortex-A76/A55) implements ARMv8.2-A: LSE atomics, UAO and FP16.
++ * XNU keys CAS-based atomics (required by sched_clutch.c), UAO save/restore
++ * and FP16 reporting on this macro, which Apple's compiler does not predefine
++ * for -march=armv8.2-a. Nothing newer (8.3 PAC, 8.4 DIT/TLBI range) is set.
++ */
++#ifndef __ARM_ARCH_8_2__
++#define __ARM_ARCH_8_2__             1
++#endif
 +
 +/* Linux reports the architected virtual timer as PDC-GIC INTID 19 on nabu. */
 +#define NABU_VTIMER_INTID            19

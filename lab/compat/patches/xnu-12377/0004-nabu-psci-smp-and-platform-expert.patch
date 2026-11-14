@@ -383,7 +383,7 @@ index f2aa8353..5223a6e6 100644
 +iokit/Kernel/arm/NabuPlatformExpert.cpp                         optional iokitcpp
 +iokit/Kernel/arm/NabuCPU.cpp                                    optional iokitcpp
 diff --git a/osfmk/arm64/cpu.c b/osfmk/arm64/cpu.c
-index 53f9ce51..ecdf8e9f 100644
+index 53f9ce51..62c047a4 100644
 --- a/osfmk/arm64/cpu.c
 +++ b/osfmk/arm64/cpu.c
 @@ -934,6 +934,17 @@ cpu_start(int cpu)
@@ -404,11 +404,14 @@ index 53f9ce51..ecdf8e9f 100644
  #if CONFIG_SPTM
  		/**
  		 * On SPTM devices, CTRR is configured entirely by the SPTM. Due to this, this logic
-@@ -971,6 +982,19 @@ cpu_start(int cpu)
+@@ -971,6 +982,22 @@ cpu_start(int cpu)
  }
  
  
 +#if defined(NABU)
++/* Called by iokit/Kernel/arm/NabuCPU.cpp while starting secondary CPUs. */
++boolean_t nabu_cpu_signal_is_enabled(unsigned int cpu);
++
 +boolean_t
 +nabu_cpu_signal_is_enabled(unsigned int cpu)
 +{
@@ -520,7 +523,7 @@ index 2032c367..37b8b0b0 100644
  	.globl EXT(resume_idle_cpu)
  LEXT(resume_idle_cpu)
 diff --git a/pexpert/pexpert/arm64/NABU.h b/pexpert/pexpert/arm64/NABU.h
-index fa855615..067d40da 100644
+index b82ebe65..193638ac 100644
 --- a/pexpert/pexpert/arm64/NABU.h
 +++ b/pexpert/pexpert/arm64/NABU.h
 @@ -9,6 +9,7 @@
