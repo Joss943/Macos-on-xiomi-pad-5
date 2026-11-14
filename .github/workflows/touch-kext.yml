@@ -41,13 +41,14 @@ jobs:
           xcodebuild -version
       - name: Build the kext (arm64e and arm64)
         run: |
-          set -eu
+          set -euo pipefail
           bash lab/nabu/touch/kext/build.sh "$RUNNER_TEMP/kext-arm64e" arm64e | tee -a "$GITHUB_STEP_SUMMARY"
           bash lab/nabu/touch/kext/build.sh "$RUNNER_TEMP/kext-arm64" arm64 | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Resolve the kext's symbols against the runner's kernel KPIs
         run: |
-          set -u
+          set -euo pipefail
           kext="$RUNNER_TEMP/kext-arm64e/NabuNT36523HID.kext"
+          test -f "$kext/Contents/MacOS/NabuNT36523HID"
           nm -u "$kext/Contents/MacOS/NabuNT36523HID" | sort | tee undefined-symbols.txt
           {
             echo '### kmutil libraries'

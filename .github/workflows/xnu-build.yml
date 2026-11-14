@@ -91,7 +91,7 @@ jobs:
       - name: Inspect the kernel and scan it for instructions Kryo 485 cannot run
         if: steps.build.outcome == 'success'
         run: |
-          set -eu
+          set -euo pipefail
           kernel="$(find dxb/build/xnu.obj -maxdepth 1 -name "kernel.development.$(echo "$MACHINE_CONFIG" | tr A-Z a-z)" -type f | head -1)"
           test -n "$kernel"
           {

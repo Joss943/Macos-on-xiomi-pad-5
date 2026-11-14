@@ -35,6 +35,14 @@ extern "C" {
 #include "../nt36523.h"
 }
 
+/*
+ * Since macOS 11 the SDK marks the in-kernel IOHIDDevice "deprecated: Use
+ * DriverKit". It is still exported. A HIDDriverKit dext is not usable here:
+ * it starts only once user space is up and needs Apple-granted DriverKit
+ * entitlements. The warning is silenced for this subclass only.
+ */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 class NabuNT36523HID : public IOHIDDevice {
 	OSDeclareDefaultStructors(NabuNT36523HID);
 
@@ -74,6 +82,7 @@ public:
 };
 
 OSDefineMetaClassAndStructors(NabuNT36523HID, IOHIDDevice);
+#pragma clang diagnostic pop
 
 uint32_t
 NabuNT36523HID::mmioRead(void *context, uint32_t offset)
