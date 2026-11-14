@@ -1,0 +1,11 @@
+diff --git a/fileset_match.py b/fileset_match.py
+--- a/fileset_match.py
++++ b/fileset_match.py
+@@ -440,5 +440,5 @@ class Matcher:
+         added = 0
+         for record in self.reviewed_records(inputs):
+-            for entry in record['functions']:
++            for entry in record.get('functions', []):
+                 if not entry.get('evidence'):
+                     raise ValueError('Reviewed function requires recorded evidence')
+                 orig = int(entry['original'],16)

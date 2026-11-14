@@ -2,3 +2,4 @@
 0002-emulate-pauth-el0-el1-without-pac.patch
 0003-nabu-sm8150-machine-and-gic.patch
 0004-nabu-psci-smp-and-platform-expert.patch
+0005-macos27-coreentitlements-stack-shift.patch

@@ -1,0 +1,36 @@
+{
+  "schema": "nabu-macos27-prelink-readiness-v1",
+  "checked_on": "2026-11-14",
+  "target": "macOS 27.3 (26C5035r) kernelcache on Xiaomi Pad 5 (nabu)",
+  "native_kernel": {
+    "source": "GitHub Actions run 19, artifact 14101323023",
+    "sha256": "b1f127126a5a17fe4866aba227b280220b50477ff230abfb6f84d8b1692914eb",
+    "xnu": "12377.121.6 / ac9718fb1af618d5ce8678d0dc6e8a58f252216f",
+    "machine": "NABU",
+    "format": "Mach-O arm64"
+  },
+  "kernelcache": {
+    "sha256": "d1003b5143ffd88439b4d45b6017f587171cfe6855660bed05370a2ea5db9fe9",
+    "source": "macOS 27.3 26C5035r local IPSW",
+    "modified": false
+  },
+  "prelinker": {
+    "repository": "UniXNU/XnuPrelink",
+    "revision": "440589b",
+    "matcher_fixture_workaround": "lab/compat/patches/xnu-prelink/macos27-optional-functions-fixture.patch",
+    "matcher_result": {
+      "functions_matched": 5634,
+      "functions_total": 23976,
+      "data_matched": 36,
+      "kext_facing_targets_named": 530,
+      "kext_facing_targets_total": 3856,
+      "conflicts": 0
+    },
+    "emission": "stopped before output: reviewed macOS 27.3 AMFI data binding requires _unixnu_kernel_stack_shift, absent from the first nabu kernel build"
+  },
+  "patch_added": "lab/compat/patches/xnu-12377/0005-macos27-coreentitlements-stack-shift.patch",
+  "patch_validated": "applies after patches 0001-0004 to clean XNU 12377; git diff --check passed",
+  "bootable_image_produced": false,
+  "tablet_written": false,
+  "next_gate": "Rebuild the nabu kernel with patch 0005, rerun macOS 27.3 fileset emission, then resolve all missing kext-facing symbols before packaging any boot image."
+}

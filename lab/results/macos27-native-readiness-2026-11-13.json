@@ -35,11 +35,13 @@
     "UniXNU documents macOS 27 arm64e as requiring native PAC hardware; this tablet reports no PAC fields and traps PACIA on all eight cores.",
     "A separate public nabu port boots an iPadOS 17.7.11-based XNU userland on a modified 12 GiB unit; it is not a macOS 27.3 build, and its display provider is still missing.",
     "The exact macOS 27.3 static kernelcache rewrite still refuses: 643 relocations, 24 unsupported PAC forms, and four uncovered executable segments.",
-    "The XNU 12377 series now includes nabu ADT enumeration, GICv3, PSCI CPU_ON64 and an EL2-to-EL1 secondary trampoline; all four patches apply in order, but XNU is not compiled and no CPU startup has been observed.",
+    "XNU 12377 with the nabu patches compiles and links as an arm64 kernel in GitHub Actions run 19, but has no UEFI/DarwinBoot chain and has never run on the tablet.",
+    "macOS 27.3 fileset prelink matched 5,634/23,976 functions and named 530/3,856 kernel targets referenced by kexts; the 26C5035r kernelcache is not yet emit-ready.",
     "The tablet bootloader remains locked.",
     "Touch input and QCA6390 Wi-Fi have not been validated with the macOS 27.3 kernel ABI."
   ],
-  "next_engineering_gate": "Compile the macOS 27.3 UniXNU/XNU 12377 profile with all four patches, fix compiler and link failures, then validate PSCI/GIC startup and qualify touch and Wi-Fi before any install attempt.",
+  "next_engineering_gate": "Rebuild XNU 12377 with patch 0005, improve 26C5035r fileset matching until all required kext-facing symbols resolve, then package UEFI/DarwinBoot and validate touch/Wi-Fi before any install attempt.",
+  "prelink_readiness_report": "macos27-prelink-readiness-2026-11-14.json",
   "patch_validation": {
     "xnu_base": "xnu-12377.121.6 (ac9718fb1af618d5ce8678d0dc6e8a58f252216f)",
     "series": [
