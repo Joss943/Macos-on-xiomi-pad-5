@@ -1,6 +1,6 @@
 diff --git a/osfmk/arm64/nabu_pauth_emu.h b/osfmk/arm64/nabu_pauth_emu.h
 new file mode 100644
-index 0000000..22471bd
+index 00000000..22471bdc
 --- /dev/null
 +++ b/osfmk/arm64/nabu_pauth_emu.h
 @@ -0,0 +1,196 @@
@@ -201,7 +201,7 @@ index 0000000..22471bd
 +
 +#endif /* NABU_PAUTH_EMU_H */
 diff --git a/osfmk/arm64/sleh.c b/osfmk/arm64/sleh.c
-index 0554aa8..6ac0966 100644
+index 0554aa80..d6b051b0 100644
 --- a/osfmk/arm64/sleh.c
 +++ b/osfmk/arm64/sleh.c
 @@ -47,8 +47,10 @@
@@ -316,7 +316,7 @@ index 0554aa8..6ac0966 100644
  /*
   * Uncategorized exceptions are a catch-all for general execution errors.
   * ARM64_TODO: For now, we assume this is for undefined instruction exceptions.
-@@ -1228,6 +1320,13 @@ handle_uncategorized(arm_saved_state_t *state)
+@@ -1228,6 +1324,13 @@ handle_uncategorized(arm_saved_state_t *state)
  
  #endif /* CONFIG_DTRACE */
  

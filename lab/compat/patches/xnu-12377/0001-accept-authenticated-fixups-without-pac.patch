@@ -1,9 +1,8 @@
 diff --git a/osfmk/mach/dyld_kernel_fixups.h b/osfmk/mach/dyld_kernel_fixups.h
+index 5a99507c..d2b5c0ff 100644
 --- a/osfmk/mach/dyld_kernel_fixups.h
 +++ b/osfmk/mach/dyld_kernel_fixups.h
-@@ -127,11 +127,12 @@
- #if HAS_APPLE_PAC
- 		if (fixupLoc->fixup64.isAuth) {
+@@ -129,11 +129,12 @@ fixup_value(union ChainedFixupPointerOnDisk* fixupLoc __unused,
  			slidValue = sign_pointer(fixupLoc->fixup64, fixupLoc, slidValue);
  		}
  #else
@@ -19,3 +18,5 @@ diff --git a/osfmk/mach/dyld_kernel_fixups.h b/osfmk/mach/dyld_kernel_fixups.h
 +		 * make arm64e kernel code executable on a CPU without PAC.
 +		 */
  #endif // HAS_APPLE_PAC
+ 		fixupLoc->raw64 = slidValue;
+ 		break;

@@ -16,6 +16,11 @@ jobs:
       - name: Run NT36523 parser fixtures
         run: python3 -m unittest discover -s lab/nabu -p 'test_*.py' -v
 
+      - name: Run Mach-O, kernelcache, ISA-scan and build-log tool tests
+        run: |
+          python3 -m unittest discover -s lab/compat -p 'test_*.py' -v
+          python3 -m unittest discover -s lab/compat/xnu-build -p 'test_*.py' -v
+
       - name: Compile and run no-PAC emulator fixtures
         run: |
           cc -std=c11 -Wall -Wextra -Werror \
@@ -31,11 +36,4 @@ jobs:
             https://github.com/apple-oss-distributions/xnu.git "$xnu_dir"
           git -C "$xnu_dir" checkout --detach \
             ac9718fb1af618d5ce8678d0dc6e8a58f252216f
-          while IFS= read -r patch || [ -n "$patch" ]; do
-            patch="${patch%$'\r'}"
-            case "$patch" in ''|\#*) continue ;; esac
-            patch_file="$GITHUB_WORKSPACE/lab/compat/patches/xnu-12377/$patch"
-            git -C "$xnu_dir" apply --check "$patch_file"
-            git -C "$xnu_dir" apply "$patch_file"
-          done < lab/compat/patches/xnu-12377/series
-          git -C "$xnu_dir" diff --check
+          bash lab/compat/xnu-build/apply_series.sh "$xnu_dir"

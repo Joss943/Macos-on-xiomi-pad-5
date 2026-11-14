@@ -1,0 +1,125 @@
+name: XNU 12377 compile (macOS runner)
+
+# Real compilation of xnu-12377.121.6 with Apple's toolchain. The VMAPPLE job is an
+# unpatched control: if it fails, the NABU result says nothing about the patches.
+# Nothing produced here is bootable on nabu by itself; see NATIF-MACOS-27.md.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/native-sonoma-research
+    paths:
+      - 'lab/compat/patches/xnu-12377/**'
+      - 'lab/compat/xnu-build/**'
+      - 'lab/compat/scan_isa_level.py'
+      - '.github/workflows/xnu-build.yml'
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: macos-15
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: vmapple-control
+            machine: VMAPPLE
+            patched: '0'
+          - name: nabu
+            machine: NABU
+            patched: '1'
+    env:
+      MACOS_VERSION: '26.5'
+      KERNEL_CONFIG: DEVELOPMENT
+      ARCH_CONFIG: ARM64
+      MACHINE_CONFIG: ${{ matrix.machine }}
+      DXB_COMMIT: 663906528d1cd5ea8fde7de6f16de73db9511549
+      XNU_TAG: xnu-12377.121.6
+      XNU_COMMIT: ac9718fb1af618d5ce8678d0dc6e8a58f252216f
+    steps:
+      - name: Check out port repository
+        uses: actions/checkout@v4
+
+      - name: Select an Xcode with the macOS 26 SDK
+        run: |
+          set -eu
+          ls -d /Applications/Xcode*.app || true
+          xcode=""
+          for candidate in $(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V); do
+            xcode="$candidate"
+          done
+          if [ -z "$xcode" ]; then
+            echo "No Xcode 26 on this runner image; the 26.5 sources need the macOS 26 SDK." >&2
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          xcodebuild -version
+          echo "SDK $(xcrun --show-sdk-version) at $(xcrun --show-sdk-path)"
+          sw_vers
+          sysctl -n hw.ncpu hw.memsize
+
+      - name: Install recipe tools
+        run: brew install jq gum xcodes cmake ninja
+
+      - name: Fetch the pinned build recipe and XNU
+        run: |
+          set -eu
+          git clone https://github.com/blacktop/darwin-xnu-build dxb
+          git -C dxb checkout --detach "$DXB_COMMIT"
+          git clone --branch "$XNU_TAG" https://github.com/apple-oss-distributions/xnu.git dxb/xnu
+          test "$(git -C dxb/xnu rev-parse HEAD)" = "$XNU_COMMIT"
+
+      - name: Apply the nabu series
+        if: matrix.patched == '1'
+        run: bash lab/compat/xnu-build/apply_series.sh dxb/xnu
+
+      - name: Build
+        id: build
+        working-directory: dxb
+        run: |
+          set -o pipefail
+          bash build.sh 2>&1 | tee "$GITHUB_WORKSPACE/build-${{ matrix.name }}.log"
+
+      - name: Summarize the build log
+        if: always()
+        run: |
+          python3 lab/compat/xnu-build/summarize_log.py "build-${{ matrix.name }}.log" \
+            --json "summary-${{ matrix.name }}.json" | tee -a "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Inspect the kernel and scan it for instructions Kryo 485 cannot run
+        if: steps.build.outcome == 'success'
+        run: |
+          set -eu
+          kernel="$(find dxb/build/xnu.obj -maxdepth 1 -name "kernel.development.$(echo "$MACHINE_CONFIG" | tr A-Z a-z)" -type f | head -1)"
+          test -n "$kernel"
+          {
+            echo "### Kernel: $(basename "$kernel")"
+            echo '```'
+            file "$kernel"
+            otool -h "$kernel"
+            size -m "$kernel" | head -40
+            shasum -a 256 "$kernel"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          python3 lab/compat/scan_isa_level.py "$kernel" --objdump "$(xcrun --find llvm-objdump)" \
+            --json "isa-${{ matrix.name }}.json" > /dev/null || true
+          {
+            echo "### ISA scan against Kryo 485"
+            echo '```json'
+            python3 -c "import json,sys; d=json.load(open(sys.argv[1])); d.pop('samples'); print(json.dumps(d, indent=2))" "isa-${{ matrix.name }}.json"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload logs and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xnu-${{ matrix.name }}-reports
+          retention-days: 14
+          if-no-files-found: ignore
+          path: |
+            build-${{ matrix.name }}.log
+            summary-${{ matrix.name }}.json
+            isa-${{ matrix.name }}.json
