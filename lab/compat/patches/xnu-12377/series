@@ -11,3 +11,4 @@
 0011-nabu-vtimer-intid-from-device-tree.patch
 0012-nabu-physmap-twig-alignment-slack.patch
 0013-nabu-cpus-booted-at-registration.patch
+0014-nabu-move-assert-and-sdt-out-of-data-const.patch

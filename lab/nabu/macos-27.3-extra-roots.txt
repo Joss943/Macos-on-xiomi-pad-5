@@ -1,0 +1,3 @@
+# Fileset roots added to UniXNU profiles/os/macos-27.3-26C5035r (d8210e0) roots for nabu.
+# UniXNU builds libpthread into its kernel; nabu keeps Apple's kext from the 26C5035r collection.
+com.apple.kec.pthread
