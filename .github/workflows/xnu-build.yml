@@ -82,6 +82,12 @@ jobs:
           set -o pipefail
           bash build.sh 2>&1 | tee "$GITHUB_WORKSPACE/build-${{ matrix.name }}.log"
 
+      - name: Replay failed compiles one at a time
+        if: failure() && steps.build.outcome == 'failure'
+        run: |
+          python3 lab/compat/xnu-build/rerun_failed.py dxb/build 2>&1 \
+            | tee "serial-${{ matrix.name }}.log" | tee -a "$GITHUB_STEP_SUMMARY" || true
+
       - name: Summarize the build log
         if: always()
         run: |
@@ -125,3 +131,4 @@ jobs:
             build-${{ matrix.name }}.log
             summary-${{ matrix.name }}.json
             isa-${{ matrix.name }}.json
+            serial-${{ matrix.name }}.log
