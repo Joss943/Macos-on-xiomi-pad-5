@@ -470,10 +470,10 @@ index 07143d53..f9d4cb25 100644
  			topology_info.cluster_power_down = 1;
  		}
 diff --git a/osfmk/arm64/start.s b/osfmk/arm64/start.s
-index 2032c367..37b8b0b0 100644
+index 12974cea..99f5a8e7 100644
 --- a/osfmk/arm64/start.s
 +++ b/osfmk/arm64/start.s
-@@ -289,6 +289,48 @@ LEXT(LowExceptionVectorBase)
+@@ -295,6 +295,48 @@ LEXT(LowExceptionVectorBase)
  LEXT(bootstrap_instructions)
  
  #endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR) */

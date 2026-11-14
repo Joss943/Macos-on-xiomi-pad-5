@@ -184,6 +184,31 @@ index e37762bc..87e1824d 100644
  ifeq ($(XNU_CONFIG_TIGHTBEAM),1)
    ifeq ($(TIGHTBEAM_IN_SDK),1)
      # Force-import the Tightbeam static lib so that all of its symbols can be exported to kexts
+diff --git a/osfmk/arm/pmap/pmap.c b/osfmk/arm/pmap/pmap.c
+index 19e7e67a..9a9a533b 100644
+--- a/osfmk/arm/pmap/pmap.c
++++ b/osfmk/arm/pmap/pmap.c
+@@ -84,8 +84,10 @@
+ 
+ #include <arm64/proc_reg.h>
+ #include <pexpert/arm64/boot.h>
++#if !defined(ARM64_BOARD_CONFIG_NABU) /* SART and UAT are Apple IOMMUs; headers are not published */
+ #include <arm64/ppl/sart.h>
+ #include <arm64/ppl/uat.h>
++#endif
+ 
+ #if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
+ #include <arm64/amcc_rorgn.h>
+@@ -2334,7 +2336,9 @@ pmap_bootstrap(
+ 	/**
+ 	 * Bootstrap any necessary SART data structures and values needed from the device tree.
+ 	 */
++#if !defined(ARM64_BOARD_CONFIG_NABU)
+ 	sart_bootstrap();
++#endif
+ 
+ 	/**
+ 	 * Don't make any assumptions about the alignment of avail_start before this
 diff --git a/osfmk/arm64/proc_reg.h b/osfmk/arm64/proc_reg.h
 index f4d148bd..98aac2cf 100644
 --- a/osfmk/arm64/proc_reg.h
@@ -275,10 +300,24 @@ index d6b051b0..7f501a87 100644
  #if MACH_ASSERT
  	if (preemption_level != sleh_get_preemption_level()) {
 diff --git a/osfmk/arm64/start.s b/osfmk/arm64/start.s
-index 6aa6fe46..2032c367 100644
+index 6aa6fe46..12974cea 100644
 --- a/osfmk/arm64/start.s
 +++ b/osfmk/arm64/start.s
-@@ -752,11 +752,11 @@ common_start:
+@@ -33,7 +33,13 @@
+ #include <pexpert/arm64/board_config.h>
+ #include <mach_assert.h>
+ #include <machine/asm.h>
++#if defined(ARM64_BOARD_CONFIG_NABU)
++/* Kryo 485 takes no Apple per-SoC tunables; tunables.s is not published. */
++.macro APPLY_TUNABLES midr, tmp1, tmp2
++.endmacro
++#else
+ #include <arm64/tunables/tunables.s>
++#endif
+ #include <arm64/exception_asm.h>
+ 
+ #if __ARM_KERNEL_PROTECT__
+@@ -752,11 +758,11 @@ common_start:
  	MSR_SCTLR_EL1_X0
  	isb		sy
  
