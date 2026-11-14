@@ -23,6 +23,11 @@ jobs:
       DARWINBOOT_COMMIT: 3c75734
       MU_BRANCH: release/202608
     steps:
+      - name: Check out port repository
+        uses: actions/checkout@v4
+        with:
+          path: port
+
       - name: Install tools
         run: |
           sudo apt-get update -qq
@@ -37,12 +42,14 @@ jobs:
           git -C unixnu checkout -q --detach "$UNIXNU_COMMIT"
           git clone -q https://github.com/UniXNU/DarwinBoot.git unixnu/drivers/DarwinBoot
           git -C unixnu/drivers/DarwinBoot checkout -q --detach "$DARWINBOOT_COMMIT"
-          for p in lab/compat/patches/darwinboot/*.patch; do
-            [ -e "$p" ] || continue
+          n=0
+          for p in port/lab/compat/patches/darwinboot/*.patch; do
             git -C unixnu/drivers/DarwinBoot apply --check "$GITHUB_WORKSPACE/$p"
             git -C unixnu/drivers/DarwinBoot apply "$GITHUB_WORKSPACE/$p"
-            echo "applied $p"
+            echo "applied $p"; n=$((n+1))
           done
+          test "$n" -gt 0 || { echo "::error::no DarwinBoot patch applied"; exit 1; }
+          git -C unixnu/drivers/DarwinBoot diff --stat
           git clone -q --depth 1 -b "$MU_BRANCH" https://github.com/microsoft/mu_basecore.git unixnu/package/Mu_Basecore
           git -C unixnu/package/Mu_Basecore submodule update -q --init --depth 1 \
             MdePkg/Library/BaseFdtLib/libfdt MdePkg/Library/MipiSysTLib/mipisyst BaseTools/Source/C/BrotliCompress/brotli
