@@ -45,14 +45,14 @@ Résultats :
 
 | Niveau | État |
 |---|---|
-| 1. Code modifié | **Fait.** Série 0001–0008 reproductible sur `ac9718fb` ; patches XnuPrelink (relocations locales, vtables arm64) appliqués sur `440589b` propre, 73 tests OK. |
-| 2. Noyau compilé | **Fait** (run 25, série 0001–0008, `2ee5523b…`) : split-seg vérifié ; relocations locales lues par XnuPrelink ; les 4 KPI macOS 27 des patches 0007–0008 sont définis. |
-| 3. Prélink émis | **Non.** Toutes les étapes structurelles passent. Appariement par noms (le kernelcache 27.3 porte les symboles du noyau) : 3 417 fonctions et 287 données sur 3 856 cibles, 0 conflit. Émission stricte APFS : **4 références non résolues** (7 455 → 1 001 → 8 → 4), toutes dans `com.apple.security.Image4` (`image4_v2_set_nonce_digest`, `_roll_nonce`, `_load_diavlo_root_ca`, `_load_local_policy`). Ces quatre fonctions passent par le moniteur d'exécution de confiance d'Apple et ne sont pas réimplémentées ici. APFS lui-même est entièrement résolu. Aucune image écrite. |
+| 1. Code modifié | **Fait.** Série 0001–0009 reproductible sur `ac9718fb` ; patches XnuPrelink (relocations locales, vtables arm64) appliqués sur `440589b` propre, 73 tests OK. |
+| 2. Noyau compilé | **Fait** (run 26, série 0001–0009, `cbbfe9d2…`) : split-seg vérifié ; relocations locales lues par XnuPrelink ; les KPI macOS 27 des patches 0007–0009 sont définis. |
+| 3. Prélink émis | **Candidat APFS écrit, non qualifié.** Appariement par noms : 3 421 fonctions et 287 données sur 3 856 cibles, 0 conflit. Émission stricte, racine `com.apple.filesystems.apfs` : **0 référence non résolue, 0 stub** (7 455 → 1 001 → 8 → 4 → 0). Kernelcache `5c57b034…` (139 Mo), `runtime_qualified: false`, `loadable: false`. Fermeture APFS seulement : la fermeture complète de démarrage ne tient pas encore dans `__PRELINK_TEXT`. |
 | 4. Image amorçable | **Non.** |
 | 5. Démarrage sur la tablette | **Aucun.** Bootloader observé verrouillé, rien flashé. |
 | 6. Tactile et Wi‑Fi sur matériel | **Non testés.** |
 
-Rapports : [`macos27-split-seg-0006-2026-11-14.json`](lab/results/macos27-split-seg-0006-2026-11-14.json), [`macos27-prelink-run22-2026-11-14.json`](lab/results/macos27-prelink-run22-2026-11-14.json), [`macos27-prelink-run23-2026-11-14.json`](lab/results/macos27-prelink-run23-2026-11-14.json)., [`macos27-prelink-run23-vtables-2026-11-14.json`](lab/results/macos27-prelink-run23-vtables-2026-11-14.json), [`macos27-prelink-run25-names-2026-11-14.json`](lab/results/macos27-prelink-run25-names-2026-11-14.json).
+Rapports : [`macos27-split-seg-0006-2026-11-14.json`](lab/results/macos27-split-seg-0006-2026-11-14.json), [`macos27-prelink-run22-2026-11-14.json`](lab/results/macos27-prelink-run22-2026-11-14.json), [`macos27-prelink-run23-2026-11-14.json`](lab/results/macos27-prelink-run23-2026-11-14.json)., [`macos27-prelink-run23-vtables-2026-11-14.json`](lab/results/macos27-prelink-run23-vtables-2026-11-14.json), [`macos27-prelink-run25-names-2026-11-14.json`](lab/results/macos27-prelink-run25-names-2026-11-14.json), [`macos27-prelink-run26-apfs-candidate-2026-11-14.json`](lab/results/macos27-prelink-run26-apfs-candidate-2026-11-14.json).
 
 ### Compiler XNU nabu soi-même
 

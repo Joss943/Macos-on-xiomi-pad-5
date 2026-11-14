@@ -27,8 +27,8 @@ Les étapes 1 à 5 sont donc réalisables sur ce matériel. Le port `Lux12138/un
 | Niveau | État |
 |---|---|
 | Noyau XNU 12377 nabu (série 0001–0009) | Compile en CI. Split-seg vérifié, 0 instruction PAC |
-| Prélink macOS 27.3, racine APFS | 8 → 4 références manquantes avant 0009 ; 0009 ajoute les 4 dernières. **À confirmer** sur le build de 0009 |
-| Kernelcache candidat écrit | Non |
+| Prélink macOS 27.3, racine APFS | **0 référence manquante, 0 stub** (build 0009, run 26) |
+| Kernelcache candidat écrit | **Oui, fermeture APFS seulement**, `5c57b034…`, non qualifié (étape A franchie) |
 | ADT (device tree) Mac17,11 pour nabu | Non commencé |
 | Trust caches, payload ESP, userdata macOS | Non commencés |
 | Démarrage sur la tablette | Aucun |
