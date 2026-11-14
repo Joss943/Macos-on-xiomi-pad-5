@@ -85,7 +85,7 @@ jobs:
       - name: Replay failed compiles one at a time
         if: failure() && steps.build.outcome == 'failure'
         run: |
-          python3 lab/compat/xnu-build/rerun_failed.py dxb/build 2>&1 \
+          python3 lab/compat/xnu-build/rerun_failed.py dxb 2>&1 \
             | tee "serial-${{ matrix.name }}.log" | tee -a "$GITHUB_STEP_SUMMARY" || true
 
       - name: Summarize the build log

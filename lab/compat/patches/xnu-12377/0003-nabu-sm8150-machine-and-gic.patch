@@ -185,7 +185,7 @@ index e37762bc..87e1824d 100644
    ifeq ($(TIGHTBEAM_IN_SDK),1)
      # Force-import the Tightbeam static lib so that all of its symbols can be exported to kexts
 diff --git a/osfmk/arm/pmap/pmap.c b/osfmk/arm/pmap/pmap.c
-index 19e7e67a..9a9a533b 100644
+index 19e7e67a..d2d5ad43 100644
 --- a/osfmk/arm/pmap/pmap.c
 +++ b/osfmk/arm/pmap/pmap.c
 @@ -84,8 +84,10 @@
@@ -199,7 +199,17 @@ index 19e7e67a..9a9a533b 100644
  
  #if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
  #include <arm64/amcc_rorgn.h>
-@@ -2334,7 +2336,9 @@ pmap_bootstrap(
+@@ -93,6 +95,9 @@
+ 
+ #include <pexpert/device_tree.h>
+ 
++/* Used by pmap_enter before its definition; the prototype lives in an unpublished header. */
++MARK_AS_PMAP_TEXT static void pmap_phys_write_disable(vm_address_t va);
++
+ #include <san/kasan.h>
+ #include <sys/cdefs.h>
+ 
+@@ -2334,7 +2339,9 @@ pmap_bootstrap(
  	/**
  	 * Bootstrap any necessary SART data structures and values needed from the device tree.
  	 */
@@ -209,6 +219,29 @@ index 19e7e67a..9a9a533b 100644
  
  	/**
  	 * Don't make any assumptions about the alignment of avail_start before this
+diff --git a/osfmk/arm/pmap/pmap_data.h b/osfmk/arm/pmap/pmap_data.h
+index f66dfba3..4311714f 100644
+--- a/osfmk/arm/pmap/pmap_data.h
++++ b/osfmk/arm/pmap/pmap_data.h
+@@ -478,6 +478,18 @@ pvh_ptep_is_iommu(const pt_entry_t *ptep)
+ #endif /* PVH_FLAG_IOMMU */
+ }
+ 
++#if defined(ARM64_BOARD_CONFIG_NABU) && defined(PVH_FLAG_IOMMU)
++/*
++ * Not in the published headers. nabu registers no IOMMU with the pmap, so this
++ * is only reached by diagnostics; return the tagged pointer with the flag cleared.
++ */
++static inline void *
++ptep_get_iommu(const pt_entry_t *ptep)
++{
++	return (void *)((vm_offset_t)ptep & ~(vm_offset_t)PVH_FLAG_IOMMU);
++}
++#endif /* ARM64_BOARD_CONFIG_NABU && PVH_FLAG_IOMMU */
++
+ /**
+  * Sometimes the PTE pointers retrieved from the pv_head_table (from an entry of
+  * type PVH_TYPE_PTEP or PVH_TYPE_PVEP) contain flags themselves. This function
 diff --git a/osfmk/arm64/proc_reg.h b/osfmk/arm64/proc_reg.h
 index f4d148bd..98aac2cf 100644
 --- a/osfmk/arm64/proc_reg.h
