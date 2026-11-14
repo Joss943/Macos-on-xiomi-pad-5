@@ -34,18 +34,25 @@ Les résultats de la compilation NABU suivante sont dans l'onglet Actions du dé
 
 ### Prélink macOS 27.3 — métadonnées split-segment (patch 0006, 14 novembre 2026)
 
-Le noyau du run 20 contient `_unixnu_kernel_stack_shift`, mais la relocalisation du prélink échoue : le Mach-O nabu ne porte pas d'information split-segment. Cause trouvée dans `makedefs/MakeInc.def` : `-Wl,-add_split_seg_info` n'est ajouté que par `LDFLAGS_KERNEL_ONLY_SUBARCH_arm64e` et `..._x86_64`. Le profil NABU garde `ARCH_STRING_FOR_CURRENT_MACHINE_CONFIG=arm64` (patch 0003), et `LDFLAGS_KERNEL_ONLY_SUBARCH_arm64` n'existe pas : le flag n'atteint jamais le link final. Le patch [`0006-nabu-link-kernel-with-split-seg-info.patch`](lab/compat/patches/xnu-12377/0006-nabu-link-kernel-with-split-seg-info.patch) définit cette variable uniquement quand `CURRENT_MACHINE_CONFIG=NABU`. `-Wl,-kernel`, présent dans les règles arm64e et x86_64, n'est volontairement pas ajouté : son effet sur le profil arm64 n'est pas vérifié.
+Le noyau du run 20 contient `_unixnu_kernel_stack_shift`, mais la relocalisation du prélink échoue : le Mach-O nabu ne porte pas d'information split-segment. Cause trouvée dans `makedefs/MakeInc.def` : `-Wl,-add_split_seg_info` n'est ajouté que par `LDFLAGS_KERNEL_ONLY_SUBARCH_arm64e` et `..._x86_64`. Le profil NABU garde `ARCH_STRING_FOR_CURRENT_MACHINE_CONFIG=arm64` (patch 0003), et `LDFLAGS_KERNEL_ONLY_SUBARCH_arm64` n'existe pas : le flag n'atteint jamais le link final. Le patch [`0006-nabu-link-kernel-with-split-seg-info.patch`](lab/compat/patches/xnu-12377/0006-nabu-link-kernel-with-split-seg-info.patch) définit cette variable uniquement quand `CURRENT_MACHINE_CONFIG=NABU`, avec `-Wl,-add_split_seg_info -Wl,-kernel` comme les règles arm64e et x86_64.
+
+Résultats :
+
+- **Run 22** (`-add_split_seg_info` seul) : flag présent sur la ligne de link, `LC_SEGMENT_SPLIT_INFO` présent, 441 825 références lues par `split_references()` sans hors-plage ni doublon. L'émission échoue ensuite (`Split-segment pointer disagrees with fixup`) : le noyau n'a pas de chained fixups mais 115 805 relocations locales classiques.
+- **Run 23** (`-kernel` ajouté) : flag présent, mais ld n'émet toujours pas de chained fixups pour arm64. Le contrôle CI échoue volontairement sur ce point. Les 115 805 relocations sont toutes `ARM64_RELOC_UNSIGNED` 64 bits, base = premier segment, et coïncident une à une avec les enregistrements split-seg de type 2.
+- **XnuPrelink** ([`arm64-local-relocations.patch`](lab/compat/patches/xnu-prelink/arm64-local-relocations.patch), sur `440589b`) : lecture stricte de ces relocations comme rebases simples ; l'en-tête de l'entrée noyau ne les annonce plus une fois converties en chaînes racine ; resscellement HMAC du noyau sauté seulement si ni le noyau natif ni le noyau d'origine ne portent `__fips_hmacs` (macOS 27.3 scelle corecrypto dans `com.apple.kec.corecrypto`). 69 tests OK.
+- **Émission stricte, racine APFS** : toutes les étapes structurelles passent (fermeture de 9 kexts, placement, relocalisation, chaînes, en-tête, scellement). Arrêt au contrôle final : **7 455 références non résolues** (APFS 2 404, IOStorageFamily 2 305, CoreAnalyticsFamily 853, IOCryptoAcceleratorFamily 614, AppleImage4 442, Image4 417, AppleEffaceableStorage 408, corecrypto 11, CoreTrust 1). Aucune image écrite. `--allow-missing` n'est pas utilisé : il exige un symbole piège dans le noyau.
 
 | Niveau | État |
 |---|---|
-| 1. Code modifié | **Fait.** Série 0001–0006 appliquée deux fois sur un clone propre de `ac9718fb` : même arbre (`26b6bd8c…`), `git diff --check` propre. |
-| 2. Noyau compilé avec 0006 | **Pas encore vérifié.** Le workflow contrôle désormais (étape « Check split-segment info ») que la ligne de link NABU contient `-add_split_seg_info` (`VERBOSE=YES`) et que le Mach-O porte `LC_SEGMENT_SPLIT_INFO`, et échoue sinon. |
-| 3. Prélink émis | **Non.** Matcher et émission à relancer sur le nouveau noyau (`split_references()`, conflits, hashes). La carte du run 20 n'est pas validée. |
+| 1. Code modifié | **Fait.** Série 0001–0006 reproductible sur `ac9718fb` ; patch XnuPrelink appliqué sur `440589b` propre. |
+| 2. Noyau compilé | **Fait** (run 23, `faec1a9c…`) : split-seg vérifié ; relocations locales, pas de chained fixups. |
+| 3. Prélink émis | **Non.** Toutes les étapes structurelles passent ; bloqué par 7 455 références non résolues (couverture du matcher : 1 635 / 3 856 cibles nommées, 6 conflits). |
 | 4. Image amorçable | **Non.** |
 | 5. Démarrage sur la tablette | **Aucun.** Bootloader observé verrouillé, rien flashé. |
 | 6. Tactile et Wi‑Fi sur matériel | **Non testés.** |
 
-Rapport : [`lab/results/macos27-split-seg-0006-2026-11-14.json`](lab/results/macos27-split-seg-0006-2026-11-14.json).
+Rapports : [`macos27-split-seg-0006-2026-11-14.json`](lab/results/macos27-split-seg-0006-2026-11-14.json), [`macos27-prelink-run22-2026-11-14.json`](lab/results/macos27-prelink-run22-2026-11-14.json), [`macos27-prelink-run23-2026-11-14.json`](lab/results/macos27-prelink-run23-2026-11-14.json).
 
 ### Compiler XNU nabu soi-même
 
