@@ -1,0 +1,48 @@
+{
+  "schema": "nabu-macos27-prelink-readiness-v1",
+  "checked_on": "2026-11-14",
+  "target": "macOS 27.3 (26C5035r) full startup kernelcache for Xiaomi Pad 5 (nabu)",
+  "kernel_build": {
+    "run": "https://github.com/Joss943/Macos-on-xiomi-pad-5/actions/runs/43627575819",
+    "commit": "b906233",
+    "series": "0001-0011",
+    "kernel_sha256": "73f4d63f2f6abde6c20cb5a10c53486c42be5da5c616a04c4d9dac3dc5db1856",
+    "isa": "2375234 instructions, 0 PAC, 20 known data false positives"
+  },
+  "pairing": {
+    "tool": "fileset_names.py",
+    "functions": 3432,
+    "data": 287,
+    "kext_targets": 3856,
+    "unpaired": 137,
+    "conflicts": 0
+  },
+  "emission": {
+    "roots": "69 roots of UniXNU profiles/os/macos-27.3-26C5035r/profile.toml (d8210e0), early_security_init com.apple.driver.AppleMobileFileIntegrity=0xfffffe0009840dd4",
+    "result": "unresolved closure references: 0; stubbed functions: 0; runtime qualification: pending",
+    "candidate_bytes": 139264000,
+    "candidate_sha256": "48bc43c03a43c62e902c8b782c10fa8ea29b987bb55f4a3048da7e43674be37c",
+    "fileset_entries": 79,
+    "candidate": "work/xnu-nabu-run28/NOT-QUALIFIED-macos-startup.kc (local only: contains Apple kexts, never published)"
+  },
+  "darwinboot_check": {
+    "tool": "lab/nabu/darwinboot_check.py",
+    "accepted": true,
+    "entry": "0xfffffe000bb55488",
+    "base": "0xfffffe0007004000",
+    "span": "0x84d0000",
+    "window_limit": "0xfe00000"
+  },
+  "history": "series 0001-0009 with the 69 roots: placement passed, 11 references missing; 0010 (UniXNU darwin26 KPIs and ABI) closes them",
+  "not_yet": [
+    "kernel of this candidate lacks 0012 (physmap slack), required to pass arm_vm_init under QEMU",
+    "no QEMU boot of the full collection yet",
+    "no tablet run"
+  ],
+  "status": {
+    "3_prelink_emitted": "yes: full macOS startup closure, 0 unresolved, DarwinBoot-acceptable, not qualified",
+    "4_bootable_image": false,
+    "5_boot_observed_on_tablet": false,
+    "6_touch_wifi_tested_on_hardware": false
+  }
+}
