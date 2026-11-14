@@ -8,3 +8,4 @@
 0008-macos27-cluster-update-range-with-callback.patch
 0009-macos27-image4-v2-nonce-policy-without-monitor.patch
 0010-macos27-darwin26-kpis-and-abi-from-unixnu.patch
+0011-nabu-vtimer-intid-from-device-tree.patch

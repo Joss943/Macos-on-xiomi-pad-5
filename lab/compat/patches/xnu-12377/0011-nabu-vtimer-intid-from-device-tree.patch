@@ -1,0 +1,83 @@
+From: nabu port
+Subject: [PATCH 0011] nabu: take the virtual timer PPI from the device tree when given
+
+NABU_VTIMER_INTID (19) is the SM8150 virtual timer PPI and stays the default.
+/arm-io/gic may carry a 32-bit "vtimer-intid" PPI (16-31) instead, so the same
+kernel can be exercised under QEMU virt (virtual timer INTID 27) before any
+hardware run. Out-of-range or missing values keep 19; nothing changes on the
+tablet unless its device tree sets the property.
+---
+diff --git a/osfmk/arm64/sleh.c b/osfmk/arm64/sleh.c
+index 7f501a8..321266f 100644
+--- a/osfmk/arm64/sleh.c
++++ b/osfmk/arm64/sleh.c
+@@ -3126,7 +3126,7 @@ sleh_irq(arm_saved_state_t *state)
+ 		goto nabu_irq_epilogue;
+ 	}
+ 
+-	if (intid == NABU_VTIMER_INTID) {
++	if (intid == nabu_vtimer_intid) {
+ 		sleh_interrupt_handler_prologue(state, DBG_INTR_TYPE_TIMER);
+ 		cdp->cpu_decrementer = -1;
+ 		ml_interrupt_masked_debug_start(rtclock_intr, DBG_INTR_TYPE_TIMER);
+diff --git a/pexpert/arm/pe_fiq.c b/pexpert/arm/pe_fiq.c
+index 82b7ceb..416504c 100644
+--- a/pexpert/arm/pe_fiq.c
++++ b/pexpert/arm/pe_fiq.c
+@@ -17,6 +17,9 @@
+ MACHINE_TIMEOUT(gicr_wake_timeout_ns, "gicr-wake-timeout", GICR_WAKE_TIMEOUT_NS, MACHINE_TIMEOUT_UNIT_NSEC, NULL);
+ 
+ static vm_offset_t gicd_base;
++#if defined(NABU)
++uint32_t nabu_vtimer_intid = NABU_VTIMER_INTID;
++#endif
+ static vm_offset_t gicr_base;
+ static vm_offset_t gicr_size;
+ 
+@@ -118,6 +121,18 @@ pe_init_fiq()
+ 		}
+ 
+ 		gicr_size = gicr_size_prop;
++#if defined(NABU)
++		/* Optional override of the virtual timer PPI; SM8150 keeps INTID 19. */
++		void const *vtimer;
++		unsigned int vtimer_size;
++		if (SecureDTGetProperty(entry, "vtimer-intid", &vtimer, &vtimer_size) == kSuccess &&
++		    vtimer_size == sizeof(uint32_t)) {
++			uint32_t const value = *(uint32_t const *)vtimer;
++			if (value >= 16 && value < 32) {
++				nabu_vtimer_intid = value;
++			}
++		}
++#endif /* NABU */
+ 	}
+ 
+ 	// Find the redistributor for this processor
+@@ -148,7 +163,7 @@ pe_init_fiq()
+ 		gicr_write32(GICR_IPRIORITYR0 + i, 0xA0A0A0A0);
+ 	}
+ 	gicr_write32(GICR_ISENABLER0,
+-	    (1U << NABU_VTIMER_INTID) | (1U << NABU_IPI_SGI));
++	    (1U << nabu_vtimer_intid) | (1U << NABU_IPI_SGI));
+ #else
+ 	// Configure timers and legacy FIQ to be group 0
+ 	gicr_write32(GICR_IGROUPR0, 0x81FFFFFF);
+diff --git a/pexpert/pexpert/arm64/NABU.h b/pexpert/pexpert/arm64/NABU.h
+index a08ad0f..11000e4 100644
+--- a/pexpert/pexpert/arm64/NABU.h
++++ b/pexpert/pexpert/arm64/NABU.h
+@@ -39,6 +39,14 @@
+ 
+ /* Linux reports the architected virtual timer as PDC-GIC INTID 19 on nabu. */
+ #define NABU_VTIMER_INTID            19
++#ifndef __ASSEMBLER__
++#include <stdint.h>
++/*
++ * The virtual timer PPI in use: NABU_VTIMER_INTID unless /arm-io/gic carries a
++ * "vtimer-intid" PPI (16-31), e.g. 27 on QEMU virt for host-side testing.
++ */
++extern uint32_t nabu_vtimer_intid;
++#endif
+ #define NABU_IPI_SGI                 1
+ 
+ #define GIC_SPURIOUS_IRQ             1023
