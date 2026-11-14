@@ -1,5 +1,5 @@
 From: nabu port
-Subject: [PATCH 0001] DarwinBoot 3c75734: keep PA and VA congruent modulo 32 MiB
+Subject: [PATCH 0001] DarwinBoot 5243c68: keep PA and VA congruent modulo 32 MiB
 
 AllocateWindow placed the kernel so that (PA - VA) is a multiple of 2 MiB.
 XNU's start.s builds its bootstrap mappings from L2 blocks and rounds the
@@ -11,11 +11,11 @@ at 0x48004000), and the first instruction of arm_init faulted as undefined.
 A 32 MiB block keeps both 4 KiB (2 MiB blocks) and 16 KiB kernels correct.
 ---
 diff --git a/DarwinBootPkg/Driver/DarwinBoot.c b/DarwinBootPkg/Driver/DarwinBoot.c
-index 3b6cafc..0e745c0 100644
+index f0f7650..3e1f8ae 100644
 --- a/DarwinBootPkg/Driver/DarwinBoot.c
 +++ b/DarwinBootPkg/Driver/DarwinBoot.c
-@@ -18,7 +18,10 @@
- #include "WindowSize.h"
+@@ -22,7 +22,10 @@
+ #include "LoaderInputs.h"
  
  #define WINDOW_SIZE  SIZE_256MB
 -#define BLOCK_SIZE   SIZE_2MB
@@ -23,6 +23,6 @@ index 3b6cafc..0e745c0 100644
 +// bootstrap mappings from L2 blocks: 2 MiB with 4 KiB pages, 32 MiB with 16 KiB
 +// pages (nabu). 32 MiB satisfies both.
 +#define BLOCK_SIZE   SIZE_32MB
- #define MAX_SEGMENTS 64
- 
- typedef struct {
+ // The largest kernel file read: the default window. A macOS kernel collection is about 137 MiB; the window check
+ // below still bounds the kernel with everything placed after it.
+ #define KERNEL_LIMIT SIZE_256MB

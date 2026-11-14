@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 90
     env:
       UNIXNU_COMMIT: d8210e0
-      DARWINBOOT_COMMIT: 3c75734
+      DARWINBOOT_COMMIT: 5243c68
       MU_BRANCH: release/202608
     steps:
       - name: Check out port repository

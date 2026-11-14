@@ -2,7 +2,7 @@
 """Offline replica of DarwinBoot's kernel acceptance checks.
 
 Mirrors ParseKernelHeader() and ParseKernel() of UniXNU/DarwinBoot
-(DarwinBootPkg/Driver/DarwinBoot.c, revision 3c75734) so a kernel or
+(DarwinBootPkg/Driver/DarwinBoot.c, revision 5243c68) so a kernel or
 MH_FILESET kernel collection can be checked on the host before any QEMU or
 device run. Every rejection names the rule that failed. Passing these checks
 only means the loader would accept the file; it says nothing about boot.
@@ -18,6 +18,7 @@ SIZE_2MB = 2 << 20
 WINDOW_SIZE = 256 << 20
 MAX_SEGMENTS = 64
 MAX_UINT64 = (1 << 64) - 1
+KERNEL_LIMIT = 256 << 20          # ReadFile limit for the kernel file (128 MiB before 5243c68)
 EFI_PAGE_MASK = 0xfff
 
 
@@ -88,6 +89,8 @@ def parse_header(d, size, header):
 
 def parse_kernel(d):
     size = len(d)
+    if size == 0 or size > KERNEL_LIMIT:
+        raise Reject(f'file size {size} exceeds the {KERNEL_LIMIT} byte kernel read limit')
     kernel = parse_header(d, size, 0)
     kernel['filetype'] = u32(d, 12)
     if kernel['filetype'] != 12:
