@@ -185,7 +185,7 @@ index e37762bc..87e1824d 100644
    ifeq ($(TIGHTBEAM_IN_SDK),1)
      # Force-import the Tightbeam static lib so that all of its symbols can be exported to kexts
 diff --git a/osfmk/arm/pmap/pmap.c b/osfmk/arm/pmap/pmap.c
-index 19e7e67a..d2d5ad43 100644
+index 19e7e67a..14af468e 100644
 --- a/osfmk/arm/pmap/pmap.c
 +++ b/osfmk/arm/pmap/pmap.c
 @@ -84,8 +84,10 @@
@@ -219,6 +219,26 @@ index 19e7e67a..d2d5ad43 100644
  
  	/**
  	 * Don't make any assumptions about the alignment of avail_start before this
+@@ -12242,6 +12249,9 @@ pmap_cs_lockdown_pages(vm_address_t kva, vm_size_t size, bool ppl_writable)
+ {
+ #if XNU_MONITOR
+ 	pmap_ppl_lockdown_pages(kva, size, PVH_FLAG_LOCKDOWN_CS, ppl_writable);
++#elif defined(ARM64_BOARD_CONFIG_NABU)
++	/* No PPL on nabu; pmap_ppl_lockdown_pages is part of the unpublished PPL. */
++	(void)kva; (void)size; (void)ppl_writable;
+ #else
+ 	pmap_ppl_lockdown_pages(kva, size, 0, ppl_writable);
+ #endif
+@@ -12252,6 +12262,9 @@ pmap_cs_unlockdown_pages(vm_address_t kva, vm_size_t size, bool ppl_writable)
+ {
+ #if XNU_MONITOR
+ 	pmap_ppl_unlockdown_pages(kva, size, PVH_FLAG_LOCKDOWN_CS, ppl_writable);
++#elif defined(ARM64_BOARD_CONFIG_NABU)
++	/* No PPL on nabu; pmap_ppl_unlockdown_pages is part of the unpublished PPL. */
++	(void)kva; (void)size; (void)ppl_writable;
+ #else
+ 	pmap_ppl_unlockdown_pages(kva, size, 0, ppl_writable);
+ #endif
 diff --git a/osfmk/arm/pmap/pmap_data.h b/osfmk/arm/pmap/pmap_data.h
 index f66dfba3..4311714f 100644
 --- a/osfmk/arm/pmap/pmap_data.h
