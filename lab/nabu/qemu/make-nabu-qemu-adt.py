@@ -33,6 +33,8 @@ def main():
     ap.add_argument('--unixnu', type=Path, required=True, help='UniXNU checkout (scripts/unixnu/devicetree.py)')
     ap.add_argument('--output', type=Path, required=True)
     ap.add_argument('--dram-size', type=lambda v: int(v, 0), default=0x80000000)
+    ap.add_argument('--macos-profile', type=Path,
+                    help='UniXNU profiles/os/macos-27.3-26C5035r/profile.toml: add its [adt] identity (root, /chosen, /chosen/asmb, /product)')
     ap.add_argument('--owned-memory-size', type=lambda v: int(v, 0), default=0x40000000,
                     help='DarwinBoot window (chosen/darwinboot-memory-size), 256 MiB to 4 GiB in 2 MiB steps')
     args = ap.parse_args()
@@ -43,6 +45,24 @@ def main():
 
     u32 = lambda v: struct.pack('<I', v)
     u64 = lambda v: struct.pack('<Q', v)
+
+    def typed(table):
+        props = []
+        for kind, enc in (('string', lambda v: str(v).encode() + b'\0'), ('u32', u32), ('u64', u64)):
+            for key, value in (table or {}).get(kind, {}).items():
+                props.append((key, enc(value)))
+        return props
+
+    adt = {}
+    if args.macos_profile:
+        import tomllib
+        adt = tomllib.loads(args.macos_profile.read_text(encoding='utf-8')).get('adt', {})
+    root_extra = [(k, v) for k, v in typed(adt.get('root')) if k != 'compatible']
+    root_compat = b'xiaomi,nabu\0' + (adt.get('root', {}).get('string', {}).get('compatible', '').encode() + b'\0'
+                                       if adt.get('root', {}).get('string', {}).get('compatible') else b'')
+    chosen_extra = typed(adt.get('chosen'))
+    asmb = adt.get('chosen', {}).get('asmb')
+    product_extra = typed(adt.get('product'))
     cpu0 = node('cpu0', [('state', b'running\0'), ('reg', u32(0)), ('device_type', b'cpu\0'),
                          ('compatible', b'qcom,kryo485\0'), ('timebase-frequency', u32(QEMU_TIMEBASE)),
                          ('clock-frequency', u32(1000000000)),
@@ -54,8 +74,9 @@ def main():
                         ('darwinboot-memory-size', u64(args.owned_memory_size)),
                         ('dram-base', u64(0x40000000)),
                         ('dram-size', u64(args.dram_size)),
-                        *empty_nvram_proxy()],
-             [node('memory-map'), node('manifest-properties')]),
+                        *empty_nvram_proxy(), *chosen_extra],
+             [node('memory-map'), node('manifest-properties'),
+              *([node('asmb', typed(asmb))] if asmb else [])]),
         node('cpus', children=[cpu0]),
         node('defaults', [('vmm-present', u32(1))]),
         node('options'),

@@ -79,16 +79,33 @@ def main():
     args = ap.parse_args()
     sys.path.insert(0, args.xnuprelink)
     from kc_image import Image
-    syms = Image(args.kernel.read_bytes()).symbols()
+    data = args.kernel.read_bytes()
+    top = Image(data)
+    images = {'kernel': top}
+    if top.kind == 12:   # kernel collection: symbolize in every fileset entry
+        images = {name: Image(data, at) for name, (_, at) in top.entries.items()}
+    owners, syms = [], {}
+    for name, img in images.items():
+        for s in img.segments:
+            if s['size'] and s['name'] != '__LINKEDIT':
+                owners.append((s['va'], s['va'] + s['size'], name))
+        for a, ns in img.symbols().items():
+            syms.setdefault(a, set()).update(ns)
+    owners.sort()
     addrs = sorted(syms)
-    by = {n: a for a, ns in syms.items() for n in ns}
+    kernel_syms = images.get('com.apple.kernel', top).symbols()
+    by = {n: a for a, ns in kernel_syms.items() for n in ns}
     if args.symbol not in by:
         sys.exit(f'symbol {args.symbol} not found')
     target = by[args.symbol]
 
     def nm(a):
+        if a < 0xfffffe0000000000:
+            return hex(a)
+        owner = next((o for b, e, o in owners if b <= a < e), '?')
         i = bisect_right(addrs, a) - 1
-        return f'{min(syms[addrs[i]])}+{a - addrs[i]:#x}' if i >= 0 and a >= 0xfffffe0000000000 else hex(a)
+        sym = f'{min(syms[addrs[i]])}+{a - addrs[i]:#x}' if i >= 0 else hex(a)
+        return f'[{owner}] {sym}'
 
     q = subprocess.Popen([args.qemu, '-machine', 'virt,gic-version=3', '-cpu', 'cortex-a76', '-smp', '1', '-m', '2048',
                           '-bios', args.firmware,

@@ -1,0 +1,32 @@
+From: nabu port
+Subject: [PATCH 0013] nabu: start processors with processor_boot (XNU 12377)
+
+The full macOS 27.3 kernelcache under QEMU (series 0001-0012) stopped in
+NabuCPU::startAll: "NABU CPU: processor_start cpu=0 failed: 5". In 12377,
+processor_start() is processor_start_from_kext(), a no-op that returns
+KERN_FAILURE. Registered processors are started with processor_boot(), boot
+CPU first, then the others, as iokit/Kernel/arm/AppleARMSMP.cpp does; the
+existing per-CPU wait on nabuStarted (set by initCPU) is kept.
+---
+diff --git a/iokit/Kernel/arm/NabuCPU.cpp b/iokit/Kernel/arm/NabuCPU.cpp
+index 76ed7b2..5126adc 100644
+--- a/iokit/Kernel/arm/NabuCPU.cpp
++++ b/iokit/Kernel/arm/NabuCPU.cpp
+@@ -145,10 +145,13 @@ NabuCPU::startAll(void *arg __unused, wait_result_t result __unused)
+ 		if (cpu == NULL) {
+ 			panic("NABU CPU: missing nub for logical CPU %u", cpu_id);
+ 		}
+-		kern_return_t kr = processor_start(cpu->machProcessor);
+-		if (kr != KERN_SUCCESS) {
+-			panic("NABU CPU: processor_start cpu=%u failed: %d", cpu_id, kr);
+-		}
++		/*
++		 * XNU 12377: processor_start() is a kext no-op returning
++		 * KERN_FAILURE; processor_boot() starts a registered processor (boot
++		 * CPU first), as AppleARMSMP does. For a secondary it reaches
++		 * NabuCPU::startCPU (PSCI CPU_ON) through cpu_start().
++		 */
++		processor_boot(cpu->machProcessor);
+ 		nanoseconds_to_deadline(5 * NSEC_PER_SEC, &deadline);
+ 		while (__atomic_load_n(&cpu->nabuStarted, __ATOMIC_ACQUIRE) == 0 ||
+ 		    !nabu_cpu_signal_is_enabled(cpu_id)) {
