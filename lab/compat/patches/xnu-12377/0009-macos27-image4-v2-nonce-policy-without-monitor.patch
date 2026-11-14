@@ -1,0 +1,79 @@
+From: nabu port
+Subject: [PATCH 0009] macOS 27 image4_v2 nonce/policy KPIs on a kernel without a code signing monitor
+
+com.apple.security.Image4 (macOS 27.3, 26C5035r) imports four kernel calls
+that the Apple kernel forwards to its code signing monitor. nabu has none, so
+each fails as the Apple kernel does when the monitor call fails: 3 for a NULL
+or empty argument (the two policy loaders), 0xffff otherwise. Nothing is
+accepted or emulated. Behaviour and return values follow UniXNU's
+macos-darwin26-kpi.patch (BSD-2-Clause-Patent, see lab/compat/NOTICE.md).
+---
+diff --git a/config/Libkern.exports b/config/Libkern.exports
+index f822678..782539a 100644
+--- a/config/Libkern.exports
++++ b/config/Libkern.exports
+@@ -713,6 +713,10 @@ _img4_interface_register
+ _image4_dlxk_link
+ _image4_dlxk_get
+ _image4_v2_interface_register
++_image4_v2_load_diavlo_root_ca
++_image4_v2_load_local_policy
++_image4_v2_roll_nonce
++_image4_v2_set_nonce_digest
+ _inet_ntop
+ _inflate
+ _inflateEnd
+diff --git a/libkern/image4/image4_v2.c b/libkern/image4/image4_v2.c
+index 1c2a94b..76e65b0 100644
+--- a/libkern/image4/image4_v2.c
++++ b/libkern/image4/image4_v2.c
+@@ -21,3 +21,49 @@ image4_v2_interface_register(const void *interface)
+ 	}
+ 	_image4_v2 = interface;
+ }
++
++/*
++ * macOS 27 nonce and policy calls. In the 26C5035r kernel each is a command
++ * to the code signing monitor. nabu has no such monitor, so each fails the way
++ * that kernel fails when the monitor call fails: 3 for a NULL or empty
++ * argument (the policy loaders), 0xffff otherwise. Nothing is accepted.
++ * Behaviour and return values follow UniXNU's macos-darwin26-kpi.patch
++ * (profiles/os/macos-27.3-26C5035r, BSD-2-Clause-Patent; see NOTICE.md).
++ */
++#define IMAGE4_V2_INVALID               3
++#define IMAGE4_V2_MONITOR_FAILED        0xffff
++
++int image4_v2_set_nonce_digest(const void *domain, const void *digest, size_t length);
++int image4_v2_roll_nonce(const void *domain);
++int image4_v2_load_diavlo_root_ca(const void *a, size_t a_length, const void *b, size_t b_length);
++int image4_v2_load_local_policy(const void *policy, size_t length);
++
++int
++image4_v2_set_nonce_digest(__unused const void *domain, __unused const void *digest, __unused size_t length)
++{
++	return IMAGE4_V2_MONITOR_FAILED;
++}
++
++int
++image4_v2_roll_nonce(__unused const void *domain)
++{
++	return IMAGE4_V2_MONITOR_FAILED;
++}
++
++int
++image4_v2_load_diavlo_root_ca(const void *a, size_t a_length, const void *b, size_t b_length)
++{
++	if (a == NULL || a_length == 0 || b == NULL || b_length == 0) {
++		return IMAGE4_V2_INVALID;
++	}
++	return IMAGE4_V2_MONITOR_FAILED;
++}
++
++int
++image4_v2_load_local_policy(const void *policy, size_t length)
++{
++	if (policy == NULL || length == 0) {
++		return IMAGE4_V2_INVALID;
++	}
++	return IMAGE4_V2_MONITOR_FAILED;
++}

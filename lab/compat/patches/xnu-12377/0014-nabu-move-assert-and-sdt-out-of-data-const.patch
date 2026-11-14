@@ -1,0 +1,52 @@
+From: nabu port
+Subject: [PATCH 0014] nabu: assert and SDT tables in __DATA so native constants fit the collection
+
+The full macOS 27.3 kernelcache under QEMU (0001-0013) reached bsd_init and
+panicked "pthread kernel extension not loaded": com.apple.kec.pthread was not
+retained. Retaining Apple's pthread kext then failed placement: "Native
+__DATA_CONST overlaps a retained segment". Apple's kernel __DATA_CONST +
+__LASTDATA_CONST span 0x17c000 bytes before pthread's constants; the NABU
+DEVELOPMENT kernel needs 0x1bc000, mostly __assert (0x2f684, 0x15e0 in the
+RELEASE original) and __const.
+
+The final NABU kernel link renames __DATA_CONST,__assert, __sdt and
+__sdt_cstring into __DATA (1 MiB of room before the first kext data).
+Assert descriptors are passed to the trap in x8 and never looked up by
+section; sdt.c also looks for __DATA,__sdt on NABU. These tables become
+writable rather than read-only after lockdown.
+---
+diff --git a/bsd/dev/dtrace/sdt.c b/bsd/dev/dtrace/sdt.c
+index 1be3e07..2f5992e 100644
+--- a/bsd/dev/dtrace/sdt.c
++++ b/bsd/dev/dtrace/sdt.c
+@@ -599,6 +599,10 @@ sdt_load_machsect(struct modctl *ctl)
+ 
+ 	/* Locate DTrace SDT section in the object. */
+ 	if ((sec_sdt = getsectbynamefromheader(mh, "__DATA_CONST", "__sdt")) == NULL) {
++#if defined(NABU)
++		/* The NABU kernel links its SDT table into __DATA (see MakeInc.def). */
++		if ((sec_sdt = getsectbynamefromheader(mh, "__DATA", "__sdt")) == NULL)
++#endif
+ 		return;
+ 	}
+ 
+diff --git a/makedefs/MakeInc.def b/makedefs/MakeInc.def
+index 20f552e..972bc74 100644
+--- a/makedefs/MakeInc.def
++++ b/makedefs/MakeInc.def
+@@ -1140,7 +1140,14 @@ LDFLAGS_KERNEL_ONLY_SUBARCH_x86_64h = $(LDFLAGS_KERNEL_ONLY_SUBARCH_x86_64)
+ ifeq ($(CURRENT_MACHINE_CONFIG),NABU)
+ LDFLAGS_KERNEL_ONLY_SUBARCH_arm64 = \
+ 	-Wl,-add_split_seg_info \
+-	-Wl,-kernel
++	-Wl,-kernel \
++	-Wl,-rename_section,__DATA_CONST,__assert,__DATA,__assert \
++	-Wl,-rename_section,__DATA_CONST,__sdt,__DATA,__sdt \
++	-Wl,-rename_section,__DATA_CONST,__sdt_cstring,__DATA,__sdt_cstring
++# In a macOS 27.3 kernel collection the native __DATA_CONST must fit before the
++# first retained kext constants (0x17c000 bytes, com.apple.kec.pthread first);
++# the DEVELOPMENT kernel's assert descriptors and DTrace SDT tables move to
++# __DATA, which has room. Nothing finds __assert by name; sdt.c is adapted.
+ endif
+ 
+ LDFLAGS_KERNEL	= $(LDFLAGS_KERNEL_GEN) \

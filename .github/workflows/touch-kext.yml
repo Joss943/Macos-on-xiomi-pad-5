@@ -1,0 +1,63 @@
+name: Nabu touch stack
+
+# Host tests of the portable touch code, then a real kext build with Xcode.
+# The kext build proves the IOKit/IOHIDFamily binding compiles and links
+# against the SDK on the runner. It does not prove macOS 27 compatibility
+# unless that SDK is the macOS 27 SDK, and it does not run on hardware.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/native-sonoma-research
+    paths:
+      - 'lab/nabu/touch/**'
+      - '.github/workflows/touch-kext.yml'
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Touch stack against the GENI/NT36523 model (ASan, UBSan)
+        run: |
+          cd lab/nabu/touch
+          cc -std=c11 -Wall -Wextra -Werror -g -fsanitize=address,undefined -fno-sanitize-recover=all \
+            test_touch_stack.c geni_spi.c nt36523.c nabu_touch_hid.c -o "$RUNNER_TEMP/touch-tests"
+          "$RUNNER_TEMP/touch-tests"
+      - name: C decoder parity with the Python reference parser
+        run: python3 -m unittest discover -s lab/nabu/touch -p 'test_*.py' -v
+
+  kext:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select the newest Xcode
+        run: |
+          set -eu
+          ls -d /Applications/Xcode*.app
+          xcode="$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          xcodebuild -version
+      - name: Build the kext (arm64e and arm64)
+        run: |
+          set -euo pipefail
+          bash lab/nabu/touch/kext/build.sh "$RUNNER_TEMP/kext-arm64e" arm64e | tee -a "$GITHUB_STEP_SUMMARY"
+          bash lab/nabu/touch/kext/build.sh "$RUNNER_TEMP/kext-arm64" arm64 | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Resolve the kext's symbols against the runner's kernel KPIs
+        run: |
+          set -euo pipefail
+          kext="$RUNNER_TEMP/kext-arm64e/NabuNT36523HID.kext"
+          test -f "$kext/Contents/MacOS/NabuNT36523HID"
+          nm -u "$kext/Contents/MacOS/NabuNT36523HID" | sort | tee undefined-symbols.txt
+          {
+            echo '### kmutil libraries'
+            echo '```'
+            kmutil libraries -p "$kext" --undef-symbols 2>&1 || true
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nabu-touch-kext-symbols
+          retention-days: 14
+          path: undefined-symbols.txt

@@ -1,0 +1,38 @@
+{
+  "schema": "nabu-macos27-prelink-readiness-v1",
+  "checked_on": "2026-11-14",
+  "target": "macOS 27.3 (26C5035r) kernelcache on Xiaomi Pad 5 (nabu)",
+  "kernel_build": {
+    "run": "https://github.com/Joss943/Macos-on-xiomi-pad-5/actions/runs/43605233874",
+    "commit": "0d9d818",
+    "series": "0001-0009",
+    "kernel_sha256": "cbbfe9d2f6710edcf765d6c17ebbc06aa94d6d5954497115ae8e8d7cf2655815",
+    "ci_split_seg_check": "success"
+  },
+  "pairing": {
+    "tool": "fileset_names.py",
+    "functions": 3421, "data": 287, "kext_targets": 3856, "unpaired": 148, "conflicts": 0
+  },
+  "emission": {
+    "command": "emit_prelink.py --kernel run26 --prelinked kernelcache.mac17j.decompressed --root com.apple.filesystems.apfs --slide 0 --fileset-map xnu-nabu-run26-mac27-names.json",
+    "result": "unresolved closure references: 0; stubbed functions: 0; runtime qualification: pending",
+    "candidate_written": true,
+    "candidate": "work/xnu-nabu-run26/NOT-QUALIFIED-apfs-names.kc (local, not versioned)",
+    "candidate_bytes": 139247616,
+    "candidate_sha256": "5c57b034bd6a2b712a4df5a3b3cdc17dd08071e395324bcb19af239b2915a5d0",
+    "format": "MH_FILESET",
+    "collection_base": "0xfffffe0007004000",
+    "mapping_complete": true,
+    "runtime_qualified": false,
+    "loadable": false,
+    "closure_root": "com.apple.filesystems.apfs only, not the full macOS startup closure",
+    "personalities_dropped": ["com.apple.security.AppleImage4", "com.apple.iokit.CoreAnalyticsFamily", "com.apple.iokit.IOStorageFamily", "com.apple.security.Image4"]
+  },
+  "what_this_is_not": "Not bootable and not an installation image: APFS-root closure only, no ADT, no trust cache, no payload, never run. The full startup closure previously did not fit __PRELINK_TEXT (0x188680 needed, 0x138000 free).",
+  "status": {
+    "3_prelink_emitted": "APFS-root candidate written (step A of lab/nabu/CHAINE-DEMARRAGE.md); full startup closure not yet",
+    "4_bootable_image": false,
+    "5_boot_observed_on_tablet": false,
+    "6_touch_wifi_tested_on_hardware": false
+  }
+}

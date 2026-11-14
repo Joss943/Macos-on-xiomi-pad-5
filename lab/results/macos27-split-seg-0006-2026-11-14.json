@@ -1,0 +1,43 @@
+{
+  "schema": "nabu-macos27-prelink-readiness-v1",
+  "checked_on": "2026-11-14",
+  "target": "macOS 27.3 (26C5035r) kernelcache on Xiaomi Pad 5 (nabu)",
+  "previous_state": {
+    "kernel_run": "https://github.com/Joss943/Macos-on-xiomi-pad-5/actions/runs/43581886007",
+    "kernel_has_unixnu_kernel_stack_shift": true,
+    "relocation_error": "fileset_layout.py: nabu Mach-O carries no split-segment information",
+    "prelink_text_full_cache": "needs 0x188680 bytes, largest free gap 0x138000",
+    "apfs_only_closure": "placement passes, relocation fails (no split-seg info)",
+    "run20_map": "work/xnu-nabu-run20-mac27-map.json: 6 double-binding conflicts, 1635/3856 kext targets named; NOT validated"
+  },
+  "root_cause": {
+    "file": "makedefs/MakeInc.def (xnu ac9718fb1af618d5ce8678d0dc6e8a58f252216f)",
+    "rule": "LDFLAGS_KERNEL_ONLY += $($(addsuffix $(ARCH_STRING_FOR_CURRENT_MACHINE_CONFIG),LDFLAGS_KERNEL_ONLY_SUBARCH_))",
+    "explanation": "-Wl,-add_split_seg_info is defined only in LDFLAGS_KERNEL_ONLY_SUBARCH_arm64e and LDFLAGS_KERNEL_ONLY_SUBARCH_x86_64. Patch 0003 keeps ARCH_STRING_FOR_CURRENT_MACHINE_CONFIG=arm64 for NABU, and LDFLAGS_KERNEL_ONLY_SUBARCH_arm64 is undefined, so the flag never reaches the final kernel link."
+  },
+  "patch_added": "lab/compat/patches/xnu-12377/0006-nabu-link-kernel-with-split-seg-info.patch",
+  "patch_scope": "defines LDFLAGS_KERNEL_ONLY_SUBARCH_arm64 = -Wl,-add_split_seg_info only when CURRENT_MACHINE_CONFIG=NABU; arm64e and x86_64 rules untouched",
+  "not_added": "-Wl,-kernel (present in the arm64e/x86_64 rules) is not added: its effect on the arm64 NABU link is unverified",
+  "patch_validation": {
+    "command": "bash lab/compat/xnu-build/apply_series.sh <clean xnu at ac9718fb>",
+    "result": "0001-0006 applied, git diff --check clean",
+    "reproducible": "two independent applications on a reset tree gave the same git tree 26b6bd8cb72445e89446f1bdad5af0a5b2eecba2",
+    "environment": "Windows, Git 2.56.0, core.autocrlf=false (CRLF checkout makes 0001 fail on osfmk/mach/dyld_kernel_fixups.h)"
+  },
+  "ci_check_added": ".github/workflows/xnu-build.yml: Build runs with VERBOSE=YES; new step fails the NABU job if the final link line lacks -add_split_seg_info or if otool -l shows no LC_SEGMENT_SPLIT_INFO; load commands uploaded as loadcmds-nabu.txt",
+  "note_on_load_command": "ld64 -add_split_seg_info emits LC_SEGMENT_SPLIT_INFO. The earlier note mentioned LC_DYLD_INFO_ONLY; which command fileset_layout.split_references() reads must be checked in work/XnuPrelink-source before concluding.",
+  "status": {
+    "1_code_modified": true,
+    "2_kernel_compiled_with_0006": "not yet verified (CI run pending)",
+    "3_prelink_emitted": false,
+    "4_bootable_image": false,
+    "5_boot_observed_on_tablet": false,
+    "6_touch_wifi_tested_on_hardware": false
+  },
+  "blocked_here": [
+    "work/XnuPrelink-source, outputs/macOS27.3/kernelcache.mac17j.decompressed and work/xnu-nabu-run20/ are not on this PC: matcher and emission (steps 5-7) cannot be rerun from this session",
+    "no GitHub write credentials in this session: push and workflow dispatch need the repository owner"
+  ],
+  "tablet_written": false,
+  "next_gate": "Run xnu-build.yml with 0006, confirm the link line and LC_SEGMENT_SPLIT_INFO, then rerun split_references(), the matcher (kernelcache + new kernel + VMAPPLE control, with hashes) and the apfs-only emission."
+}

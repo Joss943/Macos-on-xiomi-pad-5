@@ -1,0 +1,65 @@
+{
+  "schema": "nabu-macos27-native-readiness-v1",
+  "target": "macOS 27.3 (26C5035r), native on Xiaomi Pad 5 nabu",
+  "checked_on": "2026-11-13",
+  "engineering_updated_on": "2026-11-14",
+  "readiness": "not-ready",
+  "native_boot_achieved": false,
+  "tablet": {
+    "adb_connected": true,
+    "model": "21051182G",
+    "product": "nabu_global",
+    "bootloader_locked": true,
+    "flash_write_performed": false,
+    "memory_total_kb": 5633852
+  },
+  "kernelcache": {
+    "sha256": "d1003b5143ffd88439b4d45b6017f587171cfe6855660bed05370a2ea5db9fe9",
+    "bytes": 124518400,
+    "static_rewrite_attempted": true,
+    "rewritten_image_produced": false,
+    "rewrite_refusal": {
+      "multiword_loads_requiring_relocation": 643,
+      "unsupported_pac_forms": 24,
+      "uncovered_executable_segments": [
+        "root:__TEXT_BOOT_EXEC",
+        "root:__TEXT_EXEC",
+        "com.apple.kernel:__KDP",
+        "com.apple.kernel:__LAST"
+      ]
+    },
+    "input_modified": false
+  },
+  "blocking_gaps": [
+    "UniXNU's macOS 27.3 profile intentionally builds from XNU 12377.121.6 and prelinks the 26C5035r kernelcache; the nabu board integration is not complete.",
+    "UniXNU documents macOS 27 arm64e as requiring native PAC hardware; this tablet reports no PAC fields and traps PACIA on all eight cores.",
+    "A separate public nabu port boots an iPadOS 17.7.11-based XNU userland on a modified 12 GiB unit; it is not a macOS 27.3 build, and its display provider is still missing.",
+    "The exact macOS 27.3 static kernelcache rewrite still refuses: 643 relocations, 24 unsupported PAC forms, and four uncovered executable segments.",
+    "XNU 12377 with the nabu patches compiles and links as an arm64 kernel in GitHub Actions run 19, but has no UEFI/DarwinBoot chain and has never run on the tablet.",
+    "macOS 27.3 fileset prelink matched 5,634/23,976 functions and named 530/3,856 kernel targets referenced by kexts; the 26C5035r kernelcache is not yet emit-ready.",
+    "The tablet bootloader remains locked.",
+    "Touch input and QCA6390 Wi-Fi have not been validated with the macOS 27.3 kernel ABI."
+  ],
+  "next_engineering_gate": "Rebuild XNU 12377 with patch 0005, improve 26C5035r fileset matching until all required kext-facing symbols resolve, then package UEFI/DarwinBoot and validate touch/Wi-Fi before any install attempt.",
+  "prelink_readiness_report": "macos27-prelink-readiness-2026-11-14.json",
+  "patch_validation": {
+    "xnu_base": "xnu-12377.121.6 (ac9718fb1af618d5ce8678d0dc6e8a58f252216f)",
+    "series": [
+      "0001-accept-authenticated-fixups-without-pac.patch",
+      "0002-emulate-pauth-el0-el1-without-pac.patch",
+      "0003-nabu-sm8150-machine-and-gic.patch",
+      "0004-nabu-psci-smp-and-platform-expert.patch"
+    ],
+    "result": "All four patches passed git apply --check and applied in order in a clean detached XNU 12377 worktree; the source diff passed git diff --check. No kernel compilation or device boot was performed."
+  },
+  "privacy": "ADB device serial omitted.",
+  "related_nabu_port": {
+    "repository": "https://github.com/Lux12138/unixnu-nabu",
+    "inspected_revision": "39cff5f6b23df92831ce8839bc6a9a5387ba7e71",
+    "configured_target": "iPadOS 17.7.11 (21H461), iPad7,1",
+    "reported_state": "XNU reaches userland; SpringBoard and system daemons run, while an IOMobileFramebuffer provider is still missing.",
+    "hardware_difference": "The maintainer reports an upgraded 12 GiB unit; the connected target reports MemTotal 5633852 kB.",
+    "relevance": "Useful nabu boot and driver reference, but not evidence of macOS 27.3 on this 6 GiB-class tablet."
+  }
+}
+

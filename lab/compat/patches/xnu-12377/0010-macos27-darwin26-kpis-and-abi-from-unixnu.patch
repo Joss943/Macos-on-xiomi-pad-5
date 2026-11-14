@@ -1,0 +1,633 @@
+From: nabu port
+Subject: [PATCH 0010] macOS 27 kernel interfaces and ABI fixes for the full startup closure
+
+With the 69 roots of UniXNU's macos-27.3-26C5035r profile, strict emission
+stopped on 11 references to kernel interfaces XNU 12377 lacks. This patch
+takes, from UniXNU (BSD-2-Clause-Patent, see lab/compat/NOTICE.md), the parts
+of patches/xnu-12377/darwin26-kpi.patch and
+profiles/os/macos-27.3-26C5035r/patches/xnu-12377/macos-darwin26-kpi.patch
+(revision d8210e0) that 0007-0009 do not already cover:
+  - code signing: csblob_get_cdhash_with_length, proc_getcdhash_with_length,
+    *_cdhash_ext and *_cdhash_with_length, query_trust_cache[_for_rem]_with_length
+  - ABI: amfi_t TrustCache v5 layout, Darwin 26 trust cache query types,
+    the sixth argument of mpo_vnode_check_lookup_preflight
+  - ifnet_enable_synchronous_input, task_get_sanitizer_config,
+    vnodeop_desc_name, os_log_coprocessor_with_handle, os_metric_coprocessor,
+    DriverKit IOService::CallPlatformFunction (answers unsupported)
+---
+diff --git a/bsd/kern/kern_codesigning.c b/bsd/kern/kern_codesigning.c
+index 43a6b20..5b22f66 100644
+--- a/bsd/kern/kern_codesigning.c
++++ b/bsd/kern/kern_codesigning.c
+@@ -945,6 +945,56 @@ unrestrict_local_signing_cdhash(
+ #endif
+ }
+ 
++void
++set_compilation_service_cdhash_ext(
++	const cs_cdhash_ext_t *cdhash)
++{
++	if (cdhash->length == CS_CDHASH_LEN) {
++		set_compilation_service_cdhash(cdhash->hash);
++	}
++}
++
++bool
++match_compilation_service_cdhash_ext(
++	const cs_cdhash_ext_t *cdhash)
++{
++	return cdhash->length == CS_CDHASH_LEN && match_compilation_service_cdhash(cdhash->hash);
++}
++
++void
++unrestrict_local_signing_cdhash_ext(
++	const cs_cdhash_ext_t *cdhash)
++{
++	if (cdhash->length == CS_CDHASH_LEN) {
++		unrestrict_local_signing_cdhash(cdhash->hash);
++	}
++}
++
++/*
++ * macOS 27 names these three calls *_with_length; they take the same 64-byte
++ * cdhash and its length (at +0x40) as the iPadOS 27 *_ext calls above.
++ */
++void
++set_compilation_service_cdhash_with_length(
++	const cs_cdhash_ext_t *cdhash)
++{
++	set_compilation_service_cdhash_ext(cdhash);
++}
++
++bool
++match_compilation_service_cdhash_with_length(
++	const cs_cdhash_ext_t *cdhash)
++{
++	return match_compilation_service_cdhash_ext(cdhash);
++}
++
++void
++unrestrict_local_signing_cdhash_with_length(
++	const cs_cdhash_ext_t *cdhash)
++{
++	unrestrict_local_signing_cdhash_ext(cdhash);
++}
++
+ kern_return_t
+ get_trust_level_kdp(
+ 	__unused pmap_t pmap,
+diff --git a/bsd/kern/kern_cs.c b/bsd/kern/kern_cs.c
+index c1c3929..c627b1c 100644
+--- a/bsd/kern/kern_cs.c
++++ b/bsd/kern/kern_cs.c
+@@ -652,6 +652,19 @@ csblob_get_cdhash(struct cs_blob *csblob)
+ 	return csblob->csb_cdhash;
+ }
+ 
++/*
++ * Darwin 26 KPI: the cdhash and its length. Darwin 26 stores cdhashes of up
++ * to 64 bytes; every cdhash of this kernel is CS_CDHASH_LEN bytes.
++ */
++const uint8_t *
++csblob_get_cdhash_with_length(struct cs_blob *csblob, uint8_t *length)
++{
++	if (length) {
++		*length = CS_CDHASH_LEN;
++	}
++	return csblob_get_cdhash(csblob);
++}
++
+ /*
+  * Function: csblob_get_signer_type
+  *
+diff --git a/bsd/kern/kern_proc.c b/bsd/kern/kern_proc.c
+index dfb3a45..5959fa9 100644
+--- a/bsd/kern/kern_proc.c
++++ b/bsd/kern/kern_proc.c
+@@ -2202,6 +2202,33 @@ proc_getcdhash(proc_t p, unsigned char *cdhash)
+ 	return vn_getcdhash(p->p_textvp, p->p_textoff, cdhash, NULL);
+ }
+ 
++/*
++ * Darwin 26 KPI: copy the cdhash into a buffer whose capacity is *length and
++ * return its length there. Fails with ERANGE when the buffer is too small.
++ */
++int
++proc_getcdhash_with_length(proc_t p, unsigned char *cdhash, uint8_t *length)
++{
++	unsigned char hash[CS_CDHASH_LEN];
++	int error;
++
++	if (p == kernproc) {
++		return EINVAL;
++	}
++	error = vn_getcdhash(p->p_textvp, p->p_textoff, hash, NULL);
++	if (error) {
++		return error;
++	}
++	if (*length < CS_CDHASH_LEN) {
++		return ERANGE;
++	}
++	*length = CS_CDHASH_LEN;
++	if (cdhash) {
++		memcpy(cdhash, hash, CS_CDHASH_LEN);
++	}
++	return 0;
++}
++
+ uint64_t
+ proc_getcsflags(proc_t p)
+ {
+diff --git a/bsd/kern/kern_trustcache.c b/bsd/kern/kern_trustcache.c
+index 4b1e8a9..7f4e124 100644
+--- a/bsd/kern/kern_trustcache.c
++++ b/bsd/kern/kern_trustcache.c
+@@ -736,8 +736,11 @@ xnu_query_trust_cache(
+ {
+ 	kern_return_t ret = KERN_NOT_FOUND;
+ 
+-	/* Validate the query type preemptively */
+-	if (query_type >= kTCQueryTypeTotal) {
++	/*
++	 * Validate the query type preemptively. Darwin 26 libraries (TrustCache
++	 * interface version 5) define further query types and validate them.
++	 */
++	if (query_type >= kTCQueryTypeTotal && amfi->TrustCache.version < 5) {
+ 		printf("unable to query trust cache: invalid query type: %u\n", query_type);
+ 		return KERN_INVALID_ARGUMENT;
+ 	}
+@@ -1114,6 +1117,31 @@ query_trust_cache_for_rem(
+ 	return ret;
+ }
+ 
++kern_return_t
++query_trust_cache_with_length(
++	TCQueryType_t query_type,
++	const uint8_t *cdhash,
++	size_t cdhash_length,
++	TrustCacheQueryToken_t *query_token)
++{
++	if (cdhash != NULL && cdhash_length != kTCEntryHashSize) {
++		return KERN_NOT_FOUND;
++	}
++	return query_trust_cache(query_type, cdhash, query_token);
++}
++
++kern_return_t
++query_trust_cache_for_rem_with_length(
++	const uint8_t *cdhash,
++	size_t cdhash_length,
++	uint8_t *rem_perms)
++{
++	if (cdhash != NULL && cdhash_length != kTCEntryHashSize) {
++		return KERN_NOT_FOUND;
++	}
++	return query_trust_cache_for_rem(cdhash, rem_perms);
++}
++
+ /*
+  * The trust cache management library uses a wrapper data structure to manage each
+  * of the trust cache modules. We know the exact number of static trust caches we
+diff --git a/bsd/net/kpi_interface.c b/bsd/net/kpi_interface.c
+index bc7da6f..c86d954 100644
+--- a/bsd/net/kpi_interface.c
++++ b/bsd/net/kpi_interface.c
+@@ -706,6 +706,22 @@ ifnet_set_flags(ifnet_t interface, u_int16_t new_flags, u_int16_t mask)
+ 	return 0;
+ }
+ 
++/*
++ * macOS 27 lets a driver ask for synchronous input on an interface it has not
++ * attached yet. This kernel's input path has no synchronous mode: packets keep
++ * going through the input thread, so after the preconditions macOS checks the
++ * request needs no state.
++ */
++errno_t ifnet_enable_synchronous_input(ifnet_t interface);
++errno_t
++ifnet_enable_synchronous_input(ifnet_t interface)
++{
++	if (interface == NULL) {
++		return EINVAL;
++	}
++	return 0;
++}
++
+ u_int16_t
+ ifnet_flags(ifnet_t interface)
+ {
+diff --git a/bsd/sys/code_signing.h b/bsd/sys/code_signing.h
+index 80740d9..6e8b834 100644
+--- a/bsd/sys/code_signing.h
++++ b/bsd/sys/code_signing.h
+@@ -380,6 +380,40 @@ void
+ unrestrict_local_signing_cdhash(
+ 	const uint8_t *cdhash);
+ 
++/**
++ * Darwin 26 passes cdhashes as up to 64 bytes followed by their length. The
++ * variants below act on cdhashes of CS_CDHASH_LEN bytes, the only length this
++ * kernel produces, and ignore any other.
++ */
++typedef struct cs_cdhash_ext {
++	uint8_t hash[64];
++	size_t length;
++} cs_cdhash_ext_t;
++
++void
++set_compilation_service_cdhash_ext(
++	const cs_cdhash_ext_t *cdhash);
++
++bool
++match_compilation_service_cdhash_ext(
++	const cs_cdhash_ext_t *cdhash);
++
++void
++unrestrict_local_signing_cdhash_ext(
++	const cs_cdhash_ext_t *cdhash);
++
++void
++set_compilation_service_cdhash_with_length(
++	const cs_cdhash_ext_t *cdhash);
++
++bool
++match_compilation_service_cdhash_with_length(
++	const cs_cdhash_ext_t *cdhash);
++
++void
++unrestrict_local_signing_cdhash_with_length(
++	const cs_cdhash_ext_t *cdhash);
++
+ /**
+  * The kernel or the monitor environments allocate some data which is used by AppleImage4
+  * for storing critical system information such as nonces. AppleImage4 uses this API to
+diff --git a/bsd/sys/codesign.h b/bsd/sys/codesign.h
+index 9da328f..4c40502 100644
+--- a/bsd/sys/codesign.h
++++ b/bsd/sys/codesign.h
+@@ -115,6 +115,7 @@ vm_address_t    csblob_get_addr(struct cs_blob *);
+ const char *    csblob_get_teamid(struct cs_blob *);
+ const char *    csblob_get_identity(struct cs_blob *);
+ const uint8_t * csblob_get_cdhash(struct cs_blob *);
++const uint8_t * csblob_get_cdhash_with_length(struct cs_blob *, uint8_t *);
+ const CS_CodeDirectory* csblob_get_code_directory(struct cs_blob *csblob);
+ int             csblob_get_platform_binary(struct cs_blob *);
+ void            csblob_invalidate_flags(struct cs_blob *blob);
+diff --git a/bsd/sys/proc_private.h b/bsd/sys/proc_private.h
+index 0bbd811..b8a6596 100644
+--- a/bsd/sys/proc_private.h
++++ b/bsd/sys/proc_private.h
+@@ -140,6 +140,7 @@ extern uint32_t proc_persona_id(proc_t);
+ extern uint32_t proc_getuid(proc_t);
+ extern uint32_t proc_getgid(proc_t);
+ extern int proc_getcdhash(proc_t, unsigned char *);
++extern int proc_getcdhash_with_length(proc_t, unsigned char *, uint8_t *);
+ 
+ /*!
+  *  @function    proc_pidbackgrounded
+diff --git a/bsd/sys/trust_caches.h b/bsd/sys/trust_caches.h
+index 12d9de1..565b8e4 100644
+--- a/bsd/sys/trust_caches.h
++++ b/bsd/sys/trust_caches.h
+@@ -180,6 +180,23 @@ query_trust_cache_for_rem(
+ 	const uint8_t cdhash[kTCEntryHashSize],
+ 	uint8_t *rem_perms);
+ 
++/**
++ * Darwin 26 variants that take the cdhash length. Trust cache entries hold
++ * kTCEntryHashSize bytes, so a cdhash of any other length is not found.
++ */
++kern_return_t
++query_trust_cache_with_length(
++	TCQueryType_t query_type,
++	const uint8_t *cdhash,
++	size_t cdhash_length,
++	TrustCacheQueryToken_t *query_token);
++
++kern_return_t
++query_trust_cache_for_rem_with_length(
++	const uint8_t *cdhash,
++	size_t cdhash_length,
++	uint8_t *rem_perms);
++
+ __END_DECLS
+ 
+ #endif /* KERNEL_PRIVATE */
+diff --git a/bsd/vfs/kpi_vfs.c b/bsd/vfs/kpi_vfs.c
+index dcda668..1f39a3f 100644
+--- a/bsd/vfs/kpi_vfs.c
++++ b/bsd/vfs/kpi_vfs.c
+@@ -1379,6 +1379,18 @@ vfs_context_is_strict_content_protection(vfs_context_t ctx)
+ 	return false;
+ }
+ 
++/*
++ * macOS 27 KPI used by the sandbox kext: the readable name of a vnode
++ * operation (vnodeop_desc.vdesc_name). From UniXNU macos-darwin26-kpi.patch.
++ */
++const char *vnodeop_desc_name(struct vnodeop_desc *desc);
++
++const char *
++vnodeop_desc_name(struct vnodeop_desc *desc)
++{
++	return desc ? desc->vdesc_name : NULL;
++}
++
+ boolean_t
+ vfs_context_can_break_leases(vfs_context_t ctx)
+ {
+diff --git a/config/BSDKernel.exports b/config/BSDKernel.exports
+index 36c530a..b231f03 100644
+--- a/config/BSDKernel.exports
++++ b/config/BSDKernel.exports
+@@ -281,6 +281,7 @@ _ifnet_set_capabilities_supported
+ _ifnet_set_capabilities_enabled
+ _ifnet_set_eflags
+ _ifnet_set_flags
++_ifnet_enable_synchronous_input
+ _ifnet_set_hdrlen
+ _ifnet_set_link_mib_data
+ _ifnet_set_lladdr
+diff --git a/config/Libkern.exports b/config/Libkern.exports
+index 782539a..5c046bd 100644
+--- a/config/Libkern.exports
++++ b/config/Libkern.exports
+@@ -790,6 +790,8 @@ _ml_get_interrupts_enabled
+ _ml_set_interrupts_enabled
+ _os_log_coprocessor
+ _os_log_coprocessor_register_with_type
++_os_log_coprocessor_with_handle
++_os_metric_coprocessor
+ _os_log_create
+ _os_log_debug_enabled
+ _os_log_info_enabled
+diff --git a/config/Private.arm64.exports b/config/Private.arm64.exports
+index f767c86..38d9b8b 100644
+--- a/config/Private.arm64.exports
++++ b/config/Private.arm64.exports
+@@ -38,6 +38,7 @@ _ml_satisfies_x86_64_requirements
+ _ml_set_reset_time
+ _ml_thread_is64bit
+ _proc_getcdhash
++_proc_getcdhash_with_length
+ _sched_disable_acc_rail
+ _sched_enable_acc_rail
+ _sched_perfcontrol_abandon_preemption_disable_measurement
+diff --git a/config/Private.exports b/config/Private.exports
+index 1034ce3..d217b17 100644
+--- a/config/Private.exports
++++ b/config/Private.exports
+@@ -392,6 +392,10 @@ _csblob_register_profile_uuid
+ _csblob_get_addr
+ _csblob_get_base_offset
+ _csblob_get_cdhash
++_csblob_get_cdhash_with_length
++_match_compilation_service_cdhash_with_length
++_set_compilation_service_cdhash_with_length
++_unrestrict_local_signing_cdhash_with_length
+ _csblob_get_code_directory
+ _csblob_get_entitlements
+ _csblob_get_der_entitlements
+@@ -786,6 +790,8 @@ _load_trust_cache
+ _load_trust_cache_with_type
+ _load_legacy_trust_cache
+ _query_trust_cache
++_query_trust_cache_with_length
++_query_trust_cache_for_rem_with_length
+ _query_trust_cache_for_rem
+ _m_cat
+ _m_free:_mbuf_free
+@@ -896,10 +902,13 @@ _pktap_output_packet
+ _code_signing_configuration
+ _disable_code_signing_feature
+ _set_compilation_service_cdhash
++_set_compilation_service_cdhash_ext
+ _match_compilation_service_cdhash
++_match_compilation_service_cdhash_ext
+ _set_local_signing_public_key
+ _get_local_signing_public_key
+ _unrestrict_local_signing_cdhash
++_unrestrict_local_signing_cdhash_ext
+ _kernel_image4_monitor_trap
+ _kernel_image4_storage_data
+ _kernel_image4_set_nonce
+@@ -1046,6 +1055,7 @@ _strnstr
+ _sysdiagnose_notify_user
+ _task_find_region_details
+ _task_get_platform_binary
++_task_get_sanitizer_config
+ _task_get_suspend_stats
+ _task_set_cs_auxiliary_info
+ _task_id_token_to_energy_id
+@@ -1122,6 +1132,7 @@ _vfs_context_thread
+ _vfs_context_can_resolve_triggers
+ _vfs_context_ignores_content_protection
+ _vfs_context_is_strict_content_protection
++_vnodeop_desc_name
+ _vfs_context_dataless_materialization_is_prevented
+ _vfs_context_orig_dataless_materialization_is_prevented
+ _vfs_context_get_special_port
+diff --git a/iokit/DriverKit/IOService.iig b/iokit/DriverKit/IOService.iig
+index 4180871..86ac8f2 100644
+--- a/iokit/DriverKit/IOService.iig
++++ b/iokit/DriverKit/IOService.iig
+@@ -38,6 +38,7 @@
+ #include <DriverKit/OSObject.iig>
+ 
+ class IOMemoryDescriptor;
++class OSString;
+ class IOBufferMemoryDescriptor;
+ class IOUserClient;
+ class OSAction;
+@@ -591,6 +592,22 @@ public:
+ 	virtual kern_return_t
+ 	ReleasePMAssertion(uint64_t assertionID);
+ 
++   /*!
++    * @function CallPlatformFunction
++    * @abstract Calls the platform function with the given name.
++    * @param    functionName Name of the function to be called.
++    * @param    waitForFunction If <code>true</code>, <code>CallPlatformFunction</code> will not
++    *           return until the function has been called.
++    * @param    inParam Dictionary containing the input parameters.
++    * @param    outParam Pointer to a storage that will contain the output parameters.
++    * @result   An IOReturn code; <code>kIOReturnSuccess</code> if the function was successfully
++    *           executed, <code>kIOReturnUnsupported</code> if a service to execute the function
++    *           could not be found. Other return codes may be returned by the function.
++	*/
++	virtual kern_return_t
++	CallPlatformFunction(OSString * functionName, bool waitForFunction,
++		OSDictionary * inParam, OSDictionary ** outParam) LOCAL SERIALIZABLE;
++
+ private:
+ 	virtual void
+ 	Stop_async(
+diff --git a/iokit/DriverKit/OSObject.iig b/iokit/DriverKit/OSObject.iig
+index cb6b015..a2789a0 100644
+--- a/iokit/DriverKit/OSObject.iig
++++ b/iokit/DriverKit/OSObject.iig
+@@ -82,6 +82,7 @@ typedef OSObject * OSObjectPtr;
+ #define NATIVE					IIG_NATIVE
+ #define LOCAL					IIG_LOCAL
+ #define LOCALONLY				IIG_LOCALONLY
++#define SERIALIZABLE			IIG_SERIALIZABLE
+ #define REMOTE					IIG_REMOTE
+ #define LOCALHOST				IIG_LOCALHOST
+ #define INVOKEREPLY				IIG_INVOKEREPLY
+diff --git a/iokit/Kernel/IOUserServer.cpp b/iokit/Kernel/IOUserServer.cpp
+index 14d77fb..a7a37de 100644
+--- a/iokit/Kernel/IOUserServer.cpp
++++ b/iokit/Kernel/IOUserServer.cpp
+@@ -5639,6 +5639,22 @@ IOService::ReleasePMAssertion_Impl(uint64_t assertionID)
+ 	return reserved->uvars->userServer->serviceReleasePMAssertion(this, assertionID);
+ }
+ 
++/*
++ * A DriverKit call of a kernel platform function (macOS 27). A kernel service
++ * answers it through a user platform function handler it registers; this
++ * kernel registers none, so the call is unsupported, as for a service without
++ * a handler. Calls are not forwarded to other DriverKit processes.
++ */
++kern_return_t
++IOService::CallPlatformFunction_Impl(OSString * functionName, bool waitForFunction __unused,
++    OSDictionary * inParam __unused, OSDictionary ** outParam __unused)
++{
++	if (functionName == NULL) {
++		return kIOReturnBadArgument;
++	}
++	return kIOReturnUnsupported;
++}
++
+ void
+ IOUserServer::serverAck(void)
+ {
+diff --git a/libkern/amfi/amfi.c b/libkern/amfi/amfi.c
+index 58df36b..862718b 100644
+--- a/libkern/amfi/amfi.c
++++ b/libkern/amfi/amfi.c
+@@ -5,12 +5,29 @@
+ SECURITY_READ_ONLY_LATE(const amfi_t*) amfi = NULL;
+ SECURITY_READ_ONLY_LATE(const CEKernelAPI_t*) libCoreEntitlements = NULL;
+ 
++/*
++ * Darwin 26 AMFI registers TrustCache interface version 5, which adds one
++ * function after getUUID, so every later member of amfi_t sits one pointer
++ * further. The members are type-discriminated without address diversity, so
++ * a copy in this kernel's layout keeps them valid.
++ */
++#define AMFI_DARWIN26_TRUST_CACHE_VERSION 5
++static SECURITY_READ_ONLY_LATE(amfi_t) amfi_darwin26;
++
+ void
+ amfi_interface_register(const amfi_t *mfi)
+ {
+ 	if (amfi) {
+ 		panic("AppleMobileFileIntegrity interface already set");
+ 	}
++	if (mfi->TrustCache.version >= AMFI_DARWIN26_TRUST_CACHE_VERSION) {
++		const size_t split = __builtin_offsetof(amfi_t, OSEntitlements);
++
++		memcpy(&amfi_darwin26, mfi, split);
++		memcpy((char *)&amfi_darwin26 + split, (const char *)mfi + split + sizeof(void *),
++		    sizeof(amfi_t) - split);
++		mfi = &amfi_darwin26;
++	}
+ 	amfi = mfi;
+ }
+ 
+diff --git a/libkern/os/log.c b/libkern/os/log.c
+index 419f656..2331b31 100644
+--- a/libkern/os/log.c
++++ b/libkern/os/log.c
+@@ -932,6 +932,35 @@ os_log_coprocessor(void *buff, uint64_t buff_len, os_log_type_t type,
+ 	return true;
+ }
+ 
++/*
++ * macOS 27: a coprocessor message through the handle its registration returned
++ * (the first 16 bits are the coprocessor's id). This kernel keeps one
++ * coprocessor message path, so the message goes the way os_log_coprocessor
++ * sends it, without the per-coprocessor id.
++ */
++bool os_log_coprocessor_with_handle(const uint16_t *handle, void *buff, uint64_t buff_len, os_log_type_t type,
++    const char *uuid, uint64_t timestamp, uint32_t offset, bool stream_log);
++bool
++os_log_coprocessor_with_handle(__unused const uint16_t *handle, void *buff, uint64_t buff_len, os_log_type_t type,
++    const char *uuid, uint64_t timestamp, uint32_t offset, bool stream_log)
++{
++	return os_log_coprocessor(buff, buff_len, type, uuid, timestamp, offset, stream_log);
++}
++
++/*
++ * macOS 27: a coprocessor metric record for the Darwin 26 metrics stream,
++ * which this kernel does not have. The record is not logged; the call returns
++ * false, as os_log_coprocessor does for a message it does not log.
++ */
++bool os_metric_coprocessor(const void *handle, const void *metric, const void *values, uint64_t a, uint64_t b,
++    uint64_t c, uint64_t d, uint64_t e);
++bool
++os_metric_coprocessor(__unused const void *handle, __unused const void *metric, __unused const void *values,
++    __unused uint64_t a, __unused uint64_t b, __unused uint64_t c, __unused uint64_t d, __unused uint64_t e)
++{
++	return false;
++}
++
+ static inline firehose_tracepoint_t
+ firehose_trace_start(const log_payload_s *lp, uint8_t **ft_priv_data)
+ {
+diff --git a/osfmk/kern/task.c b/osfmk/kern/task.c
+index bac41b9..4754f13 100644
+--- a/osfmk/kern/task.c
++++ b/osfmk/kern/task.c
+@@ -762,6 +762,13 @@ task_get_platform_binary(task_t task)
+ 	return (task_ro_flags_get(task) & TFRO_PLATFORM) != 0;
+ }
+ 
++uint8_t task_get_sanitizer_config(task_t task);
++uint8_t
++task_get_sanitizer_config(__unused task_t task)
++{
++	return 0;
++}
++
+ boolean_t
+ task_is_a_corpse(task_t task)
+ {
+diff --git a/security/mac_policy.h b/security/mac_policy.h
+index d1115d9..0f6887f 100644
+--- a/security/mac_policy.h
++++ b/security/mac_policy.h
+@@ -4441,6 +4441,7 @@ typedef int mpo_vnode_check_listextattr_t(
+  *  @param dlabel Policy label for dvp
+  *  @param path Path being looked up
+  *  @param pathlen Length of path in bytes
++ *  @param lookup_flags Lookup state from Darwin 26 callers; 0 from this kernel
+  *
+  *  Determine whether the subject identified by the credential can perform
+  *  a lookup of the passed path relative to the passed directory vnode.
+@@ -4458,7 +4459,8 @@ typedef int mpo_vnode_check_lookup_preflight_t(
+ 	struct vnode *dvp,
+ 	struct label *dlabel,
+ 	const char *path,
+-	size_t pathlen
++	size_t pathlen,
++	uint32_t lookup_flags
+ 	);
+ 
+ /**
+diff --git a/security/mac_vfs.c b/security/mac_vfs.c
+index a2655d1..dd66717 100644
+--- a/security/mac_vfs.c
++++ b/security/mac_vfs.c
+@@ -1602,7 +1602,11 @@ mac_vnode_check_lookup_preflight(vfs_context_t ctx, struct vnode *dvp,
+ 		return 0;
+ 	}
+ 	VFS_KERNEL_DEBUG_START1(50, dvp);
+-	MAC_CHECK(vnode_check_lookup_preflight, cred, dvp, mac_vnode_label(dvp), path, pathlen);
++	/*
++	 * Darwin 26 policies take a sixth lookup-state argument that the Darwin 26
++	 * lookup derives from its own nameidata; this lookup passes no state bits.
++	 */
++	MAC_CHECK(vnode_check_lookup_preflight, cred, dvp, mac_vnode_label(dvp), path, pathlen, 0);
+ 	VFS_KERNEL_DEBUG_END1(50, dvp);
+ 	return error;
+ }

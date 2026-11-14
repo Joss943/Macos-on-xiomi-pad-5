@@ -1,0 +1,31 @@
+{
+  "schema": "nabu-macos27-pacemu-reference-v1",
+  "target": "macos-27.3-26C5035r",
+  "xnu": {
+    "version": "12377.121.6",
+    "commit": "ac9718fb1af618d5ce8678d0dc6e8a58f252216f"
+  },
+  "reference": {
+    "repository": "https://github.com/ry-diffusion/Bergamota",
+    "commit": "37a7a7a917fc09945ed2f7d1ae68b84d4525b4cb",
+    "pac_patch": "xnu/patches-12377/1019-sweet-pac-emulation.patch",
+    "pac_patch_sha256": "d0fef0fea099e82b7aae935768171c5bcae901861ab3a360a1cd4feb7ae384e8",
+    "prerequisite_patch": "xnu/patches-12377/0141-sweet-fjcvtzs-emulation.patch"
+  },
+  "integration_check": {
+    "prerequisite_applies_to_pinned_xnu": true,
+    "pac_patch_applies_after_prerequisite": true,
+    "pac_patch_applies_to_unmodified_xnu": false,
+    "method": "git apply --check on a local checkout of the pinned XNU commit, after applying the prerequisite patch"
+  },
+  "scope": {
+    "emulates": "selected non-HINT arm64e PAC instructions at EL0 for 64-bit user processes",
+    "does_not_cover": [
+      "EL1 PAC in the kernel or kexts",
+      "all code in the macOS 27.3 kernelcache",
+      "nabu board drivers or boot integration"
+    ],
+    "reference_device_boot_verified": false,
+    "macos_27_3_boot_verified": false
+  }
+}

@@ -1,0 +1,106 @@
+From: nabu port
+Subject: [PATCH 0008] macOS 27 KPI cluster_update_range_with_callback (26C5035r)
+
+Imported by the macOS 27.3 APFS kext; absent from XNU 12377. Written from its
+behaviour in the 26C5035r kernel: EINVAL for a missing callback, negative or
+overflowing arguments, or a range past the page-rounded file size; then
+page-aligned chunks of at most 64 MiB, each offered to the callback and, if it
+returns 0, recorded as delayed-write state exactly as cluster_update_state()
+does (cluster_update_state_internal, not VM initiated).
+---
+diff --git a/bsd/sys/ubc.h b/bsd/sys/ubc.h
+index ea7199e..86d7771 100644
+--- a/bsd/sys/ubc.h
++++ b/bsd/sys/ubc.h
+@@ -104,6 +104,10 @@ int UBCINFOEXISTS(const struct vnode *);
+ 
+ /* cluster IO routines */
+ void    cluster_update_state(vnode_t, vm_object_offset_t, vm_object_offset_t, boolean_t);
++typedef int (*cluster_update_range_callback_t)(vnode_t, off_t offset, off_t length, off_t filesize,
++    off_t chunk_start, off_t chunk_end, void *arg);
++int     cluster_update_range_with_callback(vnode_t, off_t offset, off_t length, off_t filesize,
++    cluster_update_range_callback_t, void *);
+ 
+ int     advisory_read(vnode_t, off_t, off_t, int);
+ int     advisory_read_ext(vnode_t, off_t, off_t, int, int (*)(buf_t, void *), void *, int);
+diff --git a/bsd/vfs/vfs_cluster.c b/bsd/vfs/vfs_cluster.c
+index 7ae2f39..6160857 100644
+--- a/bsd/vfs/vfs_cluster.c
++++ b/bsd/vfs/vfs_cluster.c
+@@ -103,6 +103,7 @@
+ #include <sys/sdt.h>
+ 
+ #include <stdbool.h>
++#include <os/overflow.h>
+ 
+ #include <vfs/vfs_disk_conditioner.h>
+ 
+@@ -3894,6 +3895,56 @@ cluster_update_state(vnode_t vp, vm_object_offset_t s_offset, vm_object_offset_t
+ 	    vp->v_un.vu_ubcinfo->ui_size, NULL, NULL, vm_initiated);
+ }
+ 
++/*
++ * macOS 27 KPI used by APFS, written from the 26C5035r kernel: validate the
++ * range against the page-rounded file size, then walk it in page-aligned
++ * chunks of at most CLUSTER_UPDATE_RANGE_CHUNK bytes. Each chunk is offered
++ * to the callback first; a nonzero result stops the walk and is returned.
++ * Otherwise the chunk is recorded as delayed-write state exactly as
++ * cluster_update_state() does (not VM initiated).
++ */
++#define CLUSTER_UPDATE_RANGE_CHUNK      (64ULL * 1024 * 1024)
++
++int
++cluster_update_range_with_callback(vnode_t vp, off_t offset, off_t length, off_t filesize,
++    cluster_update_range_callback_t callback, void *callback_arg)
++{
++	off_t end, s_offset, e_offset, last;
++
++	if (callback == NULL || offset < 0 || length < 0 || filesize < 0) {
++		return EINVAL;
++	}
++	if (os_add_overflow(offset, length, &end)) {
++		return EINVAL;
++	}
++	if ((off_t)round_page_64((mach_vm_offset_t)filesize) < end) {
++		return EINVAL;
++	}
++	if (length == 0) {
++		return 0;
++	}
++	s_offset = (off_t)trunc_page_64((mach_vm_offset_t)offset);
++	last = (off_t)round_page_64((mach_vm_offset_t)end);
++
++	while (s_offset < last) {
++		struct cl_extent cl;
++		boolean_t first_pass = TRUE;
++		int error;
++
++		e_offset = MIN(s_offset + (off_t)CLUSTER_UPDATE_RANGE_CHUNK, last);
++		error = callback(vp, offset, length, filesize, s_offset, e_offset, callback_arg);
++		if (error) {
++			return error;
++		}
++		cl.b_addr = (daddr64_t)(s_offset / PAGE_SIZE_64);
++		cl.e_addr = (daddr64_t)(e_offset / PAGE_SIZE_64);
++		cluster_update_state_internal(vp, &cl, 0, TRUE, &first_pass, s_offset, (int)(e_offset - s_offset),
++		    vp->v_un.vu_ubcinfo->ui_size, NULL, NULL, FALSE);
++		s_offset = e_offset;
++	}
++	return 0;
++}
++
+ 
+ static void
+ cluster_update_state_internal(vnode_t vp, struct cl_extent *cl, int flags, boolean_t defer_writes,
+diff --git a/config/BSDKernel.exports b/config/BSDKernel.exports
+index 6d16d33..36c530a 100644
+--- a/config/BSDKernel.exports
++++ b/config/BSDKernel.exports
+@@ -110,6 +110,7 @@ _cluster_bp
+ _cluster_bp_ext
+ _cluster_copy_ubc_data
+ _cluster_copy_upl_data
++_cluster_update_range_with_callback
+ _cluster_pagein
+ _cluster_pagein_ext
+ _cluster_pageout

@@ -1,0 +1,149 @@
+XnuPrelink 440589b (+ fixture and local-relocation patches): PAC layouts for a plain arm64 native kernel
+
+vtable_slots() only accepted IA-signed slots, so no table of the arm64 NABU
+kernel was ever recognised (0 vtable binds). A no-PAC native table now borrows
+the complete PAC layout of the same-named __ZTV table in the symbol-bearing
+arm64e reference (VMAPPLE, same XNU 12377 sources). The table must end at the
+same slot count and carry one unambiguous name, otherwise it is skipped, so the
+slot-by-slot layout comparison keeps its strength.
+
+Run 23 + macOS 27.3: 860 vtable binds, kext-facing targets named 1635 -> 1958,
+strict APFS emission unresolved references 7455 -> 1001. 73 tests OK.
+---
+diff --git a/fileset_match.py b/fileset_match.py
+index 8d71cec..15c9aa5 100755
+--- a/fileset_match.py
++++ b/fileset_match.py
+@@ -26,6 +26,8 @@ def matcher_signature():
+ 
+ 
+ def vtable_slots(side, base):
++    if getattr(side, 'plain_layouts', None) is not None:
++        return plain_vtable_slots(side, base)
+     result = []
+     for offset in range(16, 8192, 8):
+         pointer = side.fixups.get(base + offset)
+@@ -35,6 +37,52 @@ def vtable_slots(side, base):
+     return []  # unterminated, so no proven table extent
+ 
+ 
++def plain_vtable_slots(side, base):
++    """Slots of a plain arm64 (no PAC) table, with the PAC layout of the same-named
++    table in a symbol-bearing arm64e reference built from the same XNU sources.
++
++    The table must end where the reference table ends (first non-code pointer)
++    and carry the same symbol; otherwise no layout is proven and the table is
++    skipped, so every later layout comparison keeps its full strength.
++    """
++    result = []
++    for offset in range(16, 8192, 8):
++        pointer = side.fixups.get(base + offset)
++        if not pointer or pointer[1] or not side.in_exec(pointer[0]):
++            break
++        result.append(pointer)
++    else:
++        return []
++    layouts = {side.plain_layouts[name] for name in side.symbol_names.get(base, ())
++               if name.startswith('__ZTV') and name in side.plain_layouts}
++    if len(layouts) != 1:
++        return []
++    layout = next(iter(layouts))
++    if len(layout) != len(result):
++        return []
++    return [(pointer[0],) + slot for pointer, slot in zip(result, layout)]
++
++
++def reference_vtable_layouts(reference):
++    """__ZTV name -> PAC layout of each complete table in an arm64e reference."""
++    layouts, ambiguous = {}, set()
++    for address, names in reference.symbol_names.items():
++        tables = [name for name in names if name.startswith('__ZTV')]
++        if not tables:
++            continue
++        slots = vtable_slots(reference, address)
++        if len(slots) < 2:
++            continue
++        layout = tuple(pointer[1:] for pointer in slots)
++        for name in tables:
++            if layouts.get(name, layout) != layout:
++                ambiguous.add(name)
++            layouts[name] = layout
++    for name in ambiguous:
++        layouts.pop(name)
++    return layouts
++
++
+ class Side:
+     """Functions, references and pointer fixups of one kernel."""
+ 
+@@ -42,6 +90,7 @@ class Side:
+         self.image = image
+         self.fixups = fixups
+         self.mapped = mapped
++        self.plain_layouts = None   # set for a no-PAC native side, see plain_vtable_slots
+         execs = [s for s in image.segments if s['name'] in EXEC_SEGMENTS and s['size']]
+         self.exec_ranges = [(s['va'], s['va'] + s['size']) for s in execs]
+         backed = [(s['va'], s['va'] + s['filesize']) for s in execs if s['filesize']]
+@@ -1022,6 +1071,9 @@ def match_images(raw, native_data, entry_name='com.apple.kernel', max_rounds=40,
+         reference_pairing = match_images(raw, reference_data, entry_name, max_rounds, pure_leaves=False)
+         reference_image = Image(reference_data)
+         reference = Side(reference_image, reference_image.fixups(), reference_image.mapped())
++        if native.fixups and not any(fix[1] for fix in native.fixups.values()):
++            native.plain_layouts = reference_vtable_layouts(reference)
++            print(f'plain native: {len(native.plain_layouts)} vtable layouts from the reference')
+         print(f'reference symbol anchors: {matcher.anchor_reference(reference, reference_pairing)}')
+         print(f'reference order anchors: {matcher.anchor_reference_order(reference, reference_pairing)}')
+     print(f'string anchors: {matcher.anchor_strings()}')
+diff --git a/test_plain_vtables.py b/test_plain_vtables.py
+new file mode 100644
+index 0000000..1436365
+--- /dev/null
++++ b/test_plain_vtables.py
+@@ -0,0 +1,47 @@
++import unittest
++from types import SimpleNamespace
++
++from fileset_match import plain_vtable_slots, reference_vtable_layouts, vtable_slots
++
++CODE = range(0x1000, 0x2000)
++
++
++def side(table_at, targets, names, auth=None, layouts=None):
++    fixups = {}
++    for index, target in enumerate(targets):
++        fixups[table_at + 16 + 8 * index] = (target,) + (auth[index] if auth else (0, None, None, None))
++    return SimpleNamespace(fixups=fixups, symbol_names={table_at: set(names)},
++                           in_exec=lambda address: address in CODE, plain_layouts=layouts)
++
++
++class PlainVtableTests(unittest.TestCase):
++    layout = ((1, 0, 0x1111, 1), (1, 0, 0x2222, 1))
++
++    def test_reference_layout_is_borrowed_for_same_named_complete_table(self):
++        reference = side(0x8000, [0x1100, 0x1200], ['__ZTV7IOThing'], auth=self.layout)
++        layouts = reference_vtable_layouts(reference)
++        self.assertEqual(layouts, {'__ZTV7IOThing': self.layout})
++        native = side(0x9000, [0x1300, 0x1400], ['__ZTV7IOThing'], layouts=layouts)
++        self.assertEqual(vtable_slots(native, 0x9000), [(0x1300,) + self.layout[0], (0x1400,) + self.layout[1]])
++
++    def test_different_extent_or_unknown_name_gives_no_layout(self):
++        layouts = {'__ZTV7IOThing': self.layout}
++        longer = side(0x9000, [0x1300, 0x1400, 0x1500], ['__ZTV7IOThing'], layouts=layouts)
++        self.assertEqual(plain_vtable_slots(longer, 0x9000), [])
++        other = side(0x9000, [0x1300, 0x1400], ['__ZTV5Other'], layouts=layouts)
++        self.assertEqual(plain_vtable_slots(other, 0x9000), [])
++
++    def test_authenticated_pointer_is_not_a_plain_slot(self):
++        native = side(0x9000, [0x1300, 0x1400], ['__ZTV7IOThing'], auth=self.layout,
++                      layouts={'__ZTV7IOThing': self.layout})
++        self.assertEqual(plain_vtable_slots(native, 0x9000), [])
++
++    def test_conflicting_reference_layouts_are_dropped(self):
++        reference = side(0x8000, [0x1100, 0x1200], ['__ZTV1A'], auth=self.layout)
++        reference.fixups.update({0x8100 + 16: (0x1100, 1, 0, 0x3333, 1), 0x8100 + 24: (0x1200, 1, 0, 0x4444, 1)})
++        reference.symbol_names[0x8100] = {'__ZTV1A'}
++        self.assertEqual(reference_vtable_layouts(reference), {})
++
++
++if __name__ == '__main__':
++    unittest.main()

@@ -1,0 +1,34 @@
+From: nabu port
+Subject: [PATCH 0012] nabu: physmap slack for twig-aligned regions with ARM_LARGE_MEMORY
+
+macOS targets build with ARM_LARGE_MEMORY. Without a PPL monitor, the
+"virtual machine" layout sets physmap_end = physmap_base + real_phys_size,
+while arm_vm_physmap_slide() shifts every region so its VA keeps its PA
+offset within a 32 MiB twig (16 KiB pages). Under QEMU (cortex-a76, 1 GiB
+DarwinBoot window) the NABU kernel stopped in arm_vm_physmap_init:
+"arm_vm_init.c:1642 Assertion failed: (temp_ptov_table[ptov_index - 1].va
++ ...len) <= physmap_end" with physmap_base 0xfffffdf01d25c000, physmap_end
+0xfffffdf05d25c000, segLOWEST == gVirtBase. The overflow depends on the
+random physmap slide. NABU now reserves PTOV_TABLE_SIZE twigs of slack, as
+the !ARM_LARGE_MEMORY layout does; the reserved L1 range (64 GiB) has room.
+---
+diff --git a/osfmk/arm64/arm_vm_init.c b/osfmk/arm64/arm_vm_init.c
+index 756af52..f0c260f 100644
+--- a/osfmk/arm64/arm_vm_init.c
++++ b/osfmk/arm64/arm_vm_init.c
+@@ -1885,6 +1885,15 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
+ 	/* For large memory systems with no PPL such as virtual machines */
+ 	static_memory_end = phystokv(args->topOfKernelData);
+ 	physmap_end = physmap_base + real_phys_size;
++#if defined(NABU)
++	/*
++	 * arm_vm_physmap_slide() moves each region so its VA keeps its PA offset
++	 * within a twig (32 MiB with 16 KiB pages). Without the slack that the
++	 * !ARM_LARGE_MEMORY layout reserves, the last region can end past
++	 * physmap_end depending on the random physmap slide.
++	 */
++	physmap_end += (PTOV_TABLE_SIZE * ARM_TT_TWIG_SIZE);
++#endif /* NABU */
+ #else
+ 	static_memory_end = physmap_base + mem_size + (PTOV_TABLE_SIZE * ARM_TT_TWIG_SIZE); // worst possible case for block alignment
+ 	physmap_end = physmap_base + real_phys_size + (PTOV_TABLE_SIZE * ARM_TT_TWIG_SIZE);

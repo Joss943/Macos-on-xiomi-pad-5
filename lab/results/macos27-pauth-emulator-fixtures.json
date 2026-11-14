@@ -1,0 +1,29 @@
+{
+  "schema": "nabu-macos27-pauth-emulator-fixtures-v1",
+  "target": "macOS 27.3 (26C5035r) / Xiaomi Pad 5 nabu",
+  "xnu_revision": "ac9718fb1af618d5ce8678d0dc6e8a58f252216f",
+  "patches_apply_cleanly": true,
+  "fixture_scenarios": 13,
+  "ldra_immediates_checked": 1024,
+  "compiler": "Zig 0.17.1 cc / Clang 22.1.8, x86_64 Windows GNU",
+  "fixtures_passed": true,
+  "handled_instruction_classes": [
+    "PACIA/PACIB/PACDA/PACDB",
+    "AUTIA/AUTIB/AUTDA/AUTDB",
+    "zero-modifier PAC/AUT",
+    "XPACI/XPACD",
+    "PACGA",
+    "BRAA/BRAB/BRAAZ/BRABZ",
+    "BLRAA/BLRAB/BLRAAZ/BLRABZ",
+    "RETAA/RETAB",
+    "LDRAA/LDRAB with offset and pre-index writeback"
+  ],
+  "kernel_source_compiled": false,
+  "tablet_tested": false,
+  "bootable_image_produced": false,
+  "notes": [
+    "The emulator treats authentication as a no-op over plain virtual addresses; it does not provide PAC security.",
+    "The XNU patch is enabled by default for the NABU board and is compiled only when HAS_APPLE_PAC is false.",
+    "The 13 host fixtures and all 1,024 signed LDRA immediate encodings validate model semantics, not macOS boot, dyld policy, drivers, or hardware behavior."
+  ]
+}

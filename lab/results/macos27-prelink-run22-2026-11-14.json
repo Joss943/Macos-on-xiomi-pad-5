@@ -1,0 +1,65 @@
+{
+  "schema": "nabu-macos27-prelink-readiness-v1",
+  "checked_on": "2026-11-14",
+  "target": "macOS 27.3 (26C5035r) kernelcache on Xiaomi Pad 5 (nabu)",
+  "kernel_build": {
+    "run": "https://github.com/Joss943/Macos-on-xiomi-pad-5/actions/runs/43588252878",
+    "commit": "a815d02",
+    "series": "0001-0006 (0006 = -add_split_seg_info only)",
+    "artifact": "xnu-nabu-reports (14112127220)",
+    "kernel_sha256": "8b3d65641311111242b87301de3f634042b60e35a46b4410c5a981a6171f4d00",
+    "final_link_line": "clang++ ... -o .../DEVELOPMENT_ARM64_NABU//kernel.development.nabu.unstripped.noctf, contains -Wl,-add_split_seg_info (1 link line in build-nabu.log)",
+    "LC_SEGMENT_SPLIT_INFO": {"dataoff": 16442088, "datasize": 1440400},
+    "LC_DYLD_CHAINED_FIXUPS": false,
+    "classic_local_relocations": 115805,
+    "isa_scan": "2374666 instructions, 0 PAC, 20 known data false positives (19 SVE/SME, 1 MTE)"
+  },
+  "baseline_run20": {
+    "kernel_sha256": "fb988a2c2cc93217932d8cacacad0e1507c502d6ea0993677d97039a99df9e30",
+    "final_link_line_has_add_split_seg_info": false,
+    "split_references": "ValueError: Native image has no split-segment relocation information"
+  },
+  "split_references": {
+    "tool": "fileset_layout.split_references (work/XnuPrelink-source), via C:/nb/check_split.py",
+    "references": 441825,
+    "by_kind": {"2": 115805, "3": 17222, "4": 53, "5": 148739, "6": 157704, "7": 2302},
+    "out_of_range": 0,
+    "duplicate_sites": 0,
+    "control_vmapple_run19": {"sha256": "12faebabbdceee4a191921aa70d55a0594023d2583517a853976151f4b5a4e7a", "references": 450588, "out_of_range": 0, "duplicate_sites": 0}
+  },
+  "matcher": {
+    "command": "python fileset_match.py kernelcache.mac17j.decompressed kernel.development.nabu --reference-kernel kernel.development.vmapple(run19) --out xnu-nabu-run22-mac27-map.json",
+    "inputs": {
+      "kernelcache_sha256": "d1003b5143ffd88439b4d45b6017f587171cfe6855660bed05370a2ea5db9fe9",
+      "native_sha256": "8b3d65641311111242b87301de3f634042b60e35a46b4410c5a981a6171f4d00",
+      "reference_sha256": "12faebabbdceee4a191921aa70d55a0594023d2583517a853976151f4b5a4e7a"
+    },
+    "matcher_version": 8,
+    "first_pass": {"functions": "9266/23976", "kext_targets_named": "2048/3856", "conflicts": {"double-bind": 225, "vtable-correction": 1}},
+    "reference_pass_written": {"functions": "8575/23976", "data": 156, "kext_targets_named": "1635/3856", "conflicts": {"double-bind": 6}},
+    "validated": false
+  },
+  "emission": {
+    "allow_missing": {
+      "command": "emit_prelink.py --root com.apple.filesystems.apfs --slide 0 --fileset-map ... --fileset-reference ... --allow-missing",
+      "error": "ValueError: Native kernel has no unique _unixnu_fileset_unmapped",
+      "decision": "not worked around: adding that trap symbol is the fake-symbol/generic-panic path the brief forbids"
+    },
+    "strict": {
+      "command": "same without --allow-missing",
+      "error": "ValueError: Split-segment pointer disagrees with fixup at 0xfffffe0007190000 (fileset_layout.relocate_native)",
+      "cause": "kc_image.fixups() reads LC_DYLD_CHAINED_FIXUPS only; the run 22 kernel has none (ld emitted 115805 classic local relocations, one per kind-2 split-seg record), so every pointer record has no fixup to agree with",
+      "fix": "0006 revised (commit 6f1f157): NABU also links with -Wl,-kernel, as the arm64e and x86_64 rules do"
+    },
+    "image_emitted": false
+  },
+  "status": {
+    "1_code_modified": true,
+    "2_kernel_compiled_with_split_seg": "yes (run 22); with -Wl,-kernel: pending run 23",
+    "3_prelink_emitted": false,
+    "4_bootable_image": false,
+    "5_boot_observed_on_tablet": false,
+    "6_touch_wifi_tested_on_hardware": false
+  },
+  "tablet_written": false
+}

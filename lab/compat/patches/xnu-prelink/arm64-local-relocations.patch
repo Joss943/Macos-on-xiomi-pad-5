@@ -1,0 +1,162 @@
+XnuPrelink 440589b: read classic local relocations of a plain arm64 kernel
+
+ld links the NABU kernel (arm64, -static -pie, even with -kernel) with
+LC_DYSYMTAB local relocations instead of LC_DYLD_CHAINED_FIXUPS. Run 23:
+115805 ARM64_RELOC_UNSIGNED, 64-bit, non-extern records, r_address relative
+to the first segment; every site equals a split-seg kind-2 record and every
+stored value equals its linker target. kc_image.fixups() now reports them as
+plain rebases (any other shape, duplicates or out-of-image targets raise),
+and the fileset entry header no longer advertises them after they become
+root chain entries.
+---
+diff --git a/fileset_segmented.py b/fileset_segmented.py
+index 00ae54b..1bdee73 100644
+--- a/fileset_segmented.py
++++ b/fileset_segmented.py
+@@ -273,6 +273,11 @@ class SegmentedEmit(Emit):
+                     value, = struct.unpack_from('<I', blob, field)
+                     if value:
+                         struct.pack_into('<I', blob, field, self.layout.file(value))
++                # Local relocations were converted into root chain entries by
++                # relocate_native (like a dropped LC_DYLD_CHAINED_FIXUPS): the
++                # entry must not advertise them a second time.
++                if self.native.command(LC_DYLD_CHAINED_FIXUPS) is None:
++                    struct.pack_into('<II', blob, 72, 0, 0)
+             elif command in (0x22, 0x80000022):
+                 for field in (8, 16, 24, 32, 40):
+                     value, size = struct.unpack_from('<II', blob, field)
+diff --git a/kc_image.py b/kc_image.py
+index 1407d8e..705dbe8 100644
+--- a/kc_image.py
++++ b/kc_image.py
+@@ -2,7 +2,7 @@
+ """Read arm64e kernel images: fileset entries, chained fixups, function starts and code references."""
+ import struct
+ 
+-LC_SEGMENT_64, LC_SYMTAB, LC_FUNCTION_STARTS = 0x19, 0x2, 0x26
++LC_SEGMENT_64, LC_SYMTAB, LC_DYSYMTAB, LC_FUNCTION_STARTS = 0x19, 0x2, 0xb, 0x26
+ LC_DYLD_CHAINED_FIXUPS, LC_FILESET_ENTRY = 0x80000034, 0x80000035
+ PTR_ARM64E_KERNEL, PTR_64_KERNEL_CACHE = 7, 8
+ 
+@@ -47,6 +47,9 @@ class Image:
+     def mapped(self):
+         return [(s['va'], s['va'] + s['size']) for s in self.segments if s['size'] and s['name'] != '__LINKEDIT']
+ 
++    def mapped_va(self, va):
++        return any(begin <= va < end for begin, end in self.mapped())
++
+     def offset(self, va, length=1):
+         for s in self.segments:
+             if s['va'] <= va and va + length <= s['va'] + s['filesize']:
+@@ -128,10 +131,52 @@ class Image:
+             starts.append(address)
+         return starts
+ 
++    def local_relocations(self):
++        """Classic LC_DYSYMTAB local relocations of a plain arm64 kernel.
++
++        ld emits these instead of chained fixups when it links arm64 (not
++        arm64e) with -static -pie: one ARM64_RELOC_UNSIGNED, 64-bit, non-extern,
++        non-pc-relative record per rebased pointer, r_address relative to the
++        first segment. Anything else is refused rather than guessed.
++        Returns site va -> stored pointer value (the unslid target va).
++        """
++        found = self.command(LC_DYSYMTAB)
++        if not found:
++            return {}
++        locreloff, nlocrel = struct.unpack_from('<II', self.data, found[0] + 72)
++        if not nlocrel:
++            return {}
++        if self.at:
++            raise ValueError('Local relocations are only read from a standalone image')
++        base = self.segments[0]['va']
++        result = {}
++        for index in range(nlocrel):
++            address, packed = struct.unpack_from('<iI', self.data, locreloff + 8 * index)
++            if address < 0:
++                raise ValueError('Scattered local relocations are not supported')
++            pcrel, length, extern, kind = (packed >> 24) & 1, (packed >> 25) & 3, (packed >> 27) & 1, packed >> 28
++            if (pcrel, length, extern, kind) != (0, 3, 0, 0):
++                raise ValueError(f'Unsupported local relocation shape pcrel={pcrel} length={length} '
++                                 f'extern={extern} type={kind}')
++            site = base + address
++            if site in result:
++                raise ValueError(f'Duplicate local relocation at {site:#x}')
++            result[site] = int.from_bytes(self.read(site, 8), 'little')
++        return result
++
+     def fixups(self):
+-        """Chained fixups: site va -> (target va, auth, key, diversity, address diversity)."""
++        """Chained fixups: site va -> (target va, auth, key, diversity, address diversity).
++
++        Without LC_DYLD_CHAINED_FIXUPS, classic local relocations are reported in
++        the same shape as plain (non-authenticated) rebases.
++        """
+         found = self.command(LC_DYLD_CHAINED_FIXUPS)
+         if not found:
++            if self.kind == 2:   # MH_EXECUTE: a kernel linked without chained fixups
++                local = self.local_relocations()
++                if local and not all(self.mapped_va(target) for target in local.values()):
++                    raise ValueError('Local relocation target outside the image')
++                return {site: (target, 0, None, None, None) for site, target in local.items()}
+             return {}
+         dataoff, _ = struct.unpack_from('<II', self.data, found[0] + 8)
+         _, starts_offset, _, _, imports, _, _ = struct.unpack_from('<7I', self.data, dataoff)
+diff --git a/test_kc_image_local_relocations.py b/test_kc_image_local_relocations.py
+new file mode 100644
+index 0000000..04bee7e
+--- /dev/null
++++ b/test_kc_image_local_relocations.py
+@@ -0,0 +1,52 @@
++import struct
++import unittest
++
++from kc_image import Image
++
++BASE = 0xfffffe0007004000
++
++
++def image(relocations, pointers):
++    """MH_EXECUTE: one segment mapping the file at BASE, pointers at file 0x1000 + offset."""
++    data_off, rel_off = 0x1000, 0x2000
++    seg = struct.pack('<II16sQQQQIIII', 0x19, 72, b'__TEXT'.ljust(16, b'\0'),
++                      BASE, 0x3000, 0, 0x3000, 3, 3, 0, 0)
++    dysymtab = struct.pack('<20I', 0xb, 80, *([0] * 16), rel_off, len(relocations))
++    commands = seg + dysymtab
++    header = struct.pack('<8I', 0xfeedfacf, 0x100000c, 0, 2, 2, len(commands), 0, 0)
++    data = bytearray(0x3000)
++    data[:32 + len(commands)] = header + commands
++    for offset, value in pointers.items():
++        struct.pack_into('<Q', data, data_off + offset, value)
++    for index, (address, packed) in enumerate(relocations):
++        struct.pack_into('<iI', data, rel_off + 8 * index, data_off + address, packed)
++    return Image(bytes(data))
++
++
++UNSIGNED_64 = 3 << 25          # length=3 (8 bytes), pcrel=0, extern=0, type=ARM64_RELOC_UNSIGNED
++
++
++class LocalRelocationTests(unittest.TestCase):
++    def test_unsigned_pointers_become_plain_fixups(self):
++        img = image([(0x10, UNSIGNED_64), (0x20, UNSIGNED_64)], {0x10: BASE + 0x100, 0x20: BASE + 0x200})
++        self.assertEqual(img.fixups(), {BASE + 0x1010: (BASE + 0x100, 0, None, None, None),
++                                        BASE + 0x1020: (BASE + 0x200, 0, None, None, None)})
++
++    def test_other_shapes_are_refused(self):
++        for packed in (UNSIGNED_64 | 1 << 24, 2 << 25, UNSIGNED_64 | 1 << 27, UNSIGNED_64 | 1 << 28):
++            with self.subTest(packed=hex(packed)):
++                with self.assertRaises(ValueError):
++                    image([(0x10, packed)], {0x10: BASE}).fixups()
++
++    def test_duplicate_and_out_of_image_targets_are_refused(self):
++        with self.assertRaises(ValueError):
++            image([(0x10, UNSIGNED_64)] * 2, {0x10: BASE}).fixups()
++        with self.assertRaises(ValueError):
++            image([(0x10, UNSIGNED_64)], {0x10: 0x1234}).fixups()
++
++    def test_no_relocations_no_fixups(self):
++        self.assertEqual(image([], {}).fixups(), {})
++
++
++if __name__ == '__main__':
++    unittest.main()

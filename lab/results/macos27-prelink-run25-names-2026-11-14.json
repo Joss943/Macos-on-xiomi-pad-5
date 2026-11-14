@@ -1,0 +1,54 @@
+{
+  "schema": "nabu-macos27-prelink-readiness-v1",
+  "checked_on": "2026-11-14",
+  "target": "macOS 27.3 (26C5035r) kernelcache on Xiaomi Pad 5 (nabu)",
+  "kernel_build": {
+    "run": "https://github.com/Joss943/Macos-on-xiomi-pad-5/actions/runs/43594753020",
+    "commit": "f7e009e",
+    "series": "0001-0008",
+    "kernel_sha256": "2ee5523bb91792b1cf6ccb00245e46b39e852668108c25d1d5b2ff4c5b9fdb1c",
+    "ci_split_seg_check": "success (link line has -Wl,-add_split_seg_info -Wl,-kernel; LC_SEGMENT_SPLIT_INFO; 115805 local relocations)",
+    "split_references": {"references": 441840, "out_of_range": 0, "duplicate_sites": 0},
+    "isa_scan": "2374815 instructions, 0 PAC, 20 known data false positives (19 SVE/SME, 1 MTE)",
+    "new_symbols": {
+      "_vfs_context_ignores_content_protection": "0xfffffe000762a684",
+      "_vfs_context_is_strict_content_protection": "0xfffffe000762a6bc",
+      "_image4_v2_interface_register": "0xfffffe0007a9f09c",
+      "_cluster_update_range_with_callback": "0xfffffe00075efc84"
+    }
+  },
+  "kdk": {
+    "run": "https://github.com/Joss943/Macos-on-xiomi-pad-5/actions/runs/43594061277",
+    "source": "dortania/KdkSupportPkg release 26C5035r, Kernel_Debug_Kit_27.2_build_26C5035r.dmg, sha256 529ba51a476e1f22c34bda3b3eff357b70bf19a6869d4542c66201cbf2eaa8ff",
+    "match": "kernel.release.t6050, LC_UUID 1CF8F1FA-D974-3267-B5C3-F2572211A037 = com.apple.kernel of kernelcache.mac17j; dSYM included",
+    "use": "not needed for naming (the kernelcache entry is symbol-bearing); kept as a DWARF reference"
+  },
+  "pairing": {
+    "tool": "fileset_names.py (symbol names of the kernelcache's com.apple.kernel entry -> native external definitions)",
+    "inputs": {
+      "kernelcache_sha256": "d1003b5143ffd88439b4d45b6017f587171cfe6855660bed05370a2ea5db9fe9",
+      "native_sha256": "2ee5523bb91792b1cf6ccb00245e46b39e852668108c25d1d5b2ff4c5b9fdb1c"
+    },
+    "functions": 3417, "data": 287, "kext_targets": 3856, "unpaired": 152, "conflicts": 0,
+    "unpaired_note": "almost all in Apple-SoC kexts outside the APFS closure (exclaves, SEP, DART, ANE, AOP, display, camera)"
+  },
+  "emission_strict_apfs": {
+    "command": "emit_prelink.py --kernel run25 --prelinked kernelcache.mac17j.decompressed --root com.apple.filesystems.apfs --slide 0 --fileset-map xnu-nabu-run25-mac27-names.json",
+    "unresolved_history": {"code matcher (run 23)": 7455, "plain-arm64 vtable layouts": 1001, "names (run 23, series 0001-0006)": 8, "names (run 25, series 0001-0008)": 4},
+    "unresolved": {
+      "com.apple.security.Image4": ["_image4_v2_set_nonce_digest", "_image4_v2_roll_nonce", "_image4_v2_load_diavlo_root_ca", "_image4_v2_load_local_policy"]
+    },
+    "apfs_and_other_closure_kexts": "fully resolved",
+    "candidate_written": false,
+    "not_implemented": "the four image4_v2 nonce/policy entry points go through Apple's trusted execution monitor; they are not reimplemented here"
+  },
+  "status": {
+    "1_code_modified": true,
+    "2_kernel_compiled": "yes (run 25, series 0001-0008)",
+    "3_prelink_emitted": "no: 4 unresolved references, all in com.apple.security.Image4",
+    "4_bootable_image": false,
+    "5_boot_observed_on_tablet": false,
+    "6_touch_wifi_tested_on_hardware": false
+  },
+  "tablet": "bootloader observed locked (ro.boot.flash.locked=1) on 2026-11-14; nothing written"
+}
