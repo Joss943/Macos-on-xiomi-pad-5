@@ -36,6 +36,37 @@ class Contact:
 class TouchFrame:
     contacts: tuple[Contact, ...]
     recovery: str | None = None
+    watchdog_pattern: bool = False
+
+
+@dataclass
+class WatchdogRecoveryTracker:
+    """Mirror the Novatek driver's consecutive-frame watchdog policy.
+
+    The controller's 0xFD/0xFE marker is only a watchdog indication. The
+    reference driver reloads firmware after it sees that pattern 11 times in
+    a row; one marked packet is not itself proof that the controller reset.
+    """
+
+    confirmation_frames: int = 11
+    consecutive_frames: int = 0
+
+    def __post_init__(self) -> None:
+        if self.confirmation_frames < 1:
+            raise ValueError("confirmation_frames must be positive")
+
+    def should_recover(self, frame: TouchFrame) -> bool:
+        if frame.recovery == "firmware-reset":
+            self.consecutive_frames = 0
+            return True
+        if frame.watchdog_pattern:
+            self.consecutive_frames += 1
+            if self.consecutive_frames >= self.confirmation_frames:
+                self.consecutive_frames = 0
+                return True
+            return False
+        self.consecutive_frames = 0
+        return False
 
 
 def parse_report(
@@ -60,7 +91,7 @@ def parse_report(
     if firmware_status == bytes((0x77,)) * 6:
         return TouchFrame((), recovery="firmware-reset")
     if all(value in (0xFD, 0xFE) for value in firmware_status):
-        return TouchFrame((), recovery="watchdog-reset")
+        return TouchFrame((), watchdog_pattern=True)
 
     contacts = []
     for slot in range(MAX_FINGERS):

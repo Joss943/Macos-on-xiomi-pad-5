@@ -1,6 +1,10 @@
 import unittest
 
-from nt36523_touch import TouchReportError, parse_report
+from nt36523_touch import (
+    TouchReportError,
+    WatchdogRecoveryTracker,
+    parse_report,
+)
 
 
 def set_contact(packet, slot, identifier, event, x, y, width, pressure):
@@ -50,7 +54,32 @@ class NT36523TouchParserTests(unittest.TestCase):
         watchdog[1:7] = bytes((0xFD, 0xFE, 0xFD, 0xFE, 0xFD, 0xFE))
 
         self.assertEqual(parse_report(bytes(firmware), max_x=1, max_y=1).recovery, "firmware-reset")
-        self.assertEqual(parse_report(bytes(watchdog), max_x=1, max_y=1).recovery, "watchdog-reset")
+        self.assertTrue(parse_report(bytes(watchdog), max_x=1, max_y=1).watchdog_pattern)
+
+    def test_watchdog_requires_eleven_consecutive_marked_frames(self):
+        watchdog = bytearray(66)
+        watchdog[1:7] = bytes((0xFD, 0xFE, 0xFD, 0xFE, 0xFD, 0xFE))
+        watchdog_frame = parse_report(bytes(watchdog), max_x=1, max_y=1)
+        tracker = WatchdogRecoveryTracker()
+
+        for _ in range(10):
+            self.assertFalse(tracker.should_recover(watchdog_frame))
+        self.assertTrue(tracker.should_recover(watchdog_frame))
+        self.assertEqual(tracker.consecutive_frames, 0)
+
+    def test_normal_frame_clears_watchdog_streak(self):
+        watchdog = bytearray(66)
+        watchdog[1:7] = bytes((0xFD,)) * 6
+        watchdog_frame = parse_report(bytes(watchdog), max_x=1, max_y=1)
+        normal_frame = parse_report(bytes(66), max_x=1, max_y=1)
+        tracker = WatchdogRecoveryTracker()
+
+        for _ in range(10):
+            self.assertFalse(tracker.should_recover(watchdog_frame))
+        self.assertFalse(tracker.should_recover(normal_frame))
+        for _ in range(10):
+            self.assertFalse(tracker.should_recover(watchdog_frame))
+        self.assertFalse(tracker.should_recover(normal_frame))
 
     def test_rejects_truncated_packets_and_invalid_limits(self):
         with self.assertRaises(TouchReportError):
