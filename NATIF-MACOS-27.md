@@ -2,6 +2,43 @@
 
 La cible demandée est **macOS 27.3, build 26C5035r**. Le profil public UniXNU pour macOS 27.3 cible `Mac17,11` et compile XNU en **arm64e**. Il exige le Pointer Authentication matériel (PAC) sur chaque cœur. Le dépôt UniXNU indique que les appareils sans PAC restent sur les profils arm64, jusqu'à iPadOS 17 pour cette génération. Références : [profil macOS](https://unixnu.com/porting/macos), [prérequis arm64e](https://unixnu.com/porting/arm64e).
 
+## Résultats vérifiés le 14 novembre 2026
+
+Ce qui suit a été exécuté, pas seulement écrit. Tout le reste de ce document est à lire avec ce tableau en tête.
+
+| Vérification | Où | Résultat |
+|---|---|---|
+| Compilation de XNU `12377.121.6` non patché, carte VMAPPLE (témoin de la chaîne d'outils) | CI `xnu-build.yml`, runner macOS 15, Xcode 26.3, SDK 26.2, KDK 26.5, recette `blacktop/darwin-xnu-build@6639065` | **Réussie** (15 min). La chaîne de compilation est donc valide. |
+| Compilation de la série nabu, carte NABU, 1re passe | même CI | **Échec, 7 erreurs**, toutes corrigées depuis : compteurs CPMU d'Apple activés pour toute carte non virtuelle, constantes de barrière absentes d'IOKit. |
+| Défauts trouvés à la relecture | patches 0003 et 0004 | Label `nabu_irq_epilogue` défini hors carte NABU, qui cassait les autres configurations avec `-Werror`. Symbole `sysreg_restore` inexistant dans XNU 12377. Champs masquant des membres hérités. Tous corrigés. |
+| Série 0001 à 0004 | `lab/compat/xnu-build/apply_series.sh` | S'applique sur `ac9718fb` et produit exactement l'arbre de travail vérifié. |
+| Pile tactile portable (NT36523, GENI SPI, HID) | `lab/nabu/touch/`, CI `touch-kext.yml` | Décodeur C identique au parseur Python sur 20 000 paquets. Moteur SPI testé contre un modèle GENI sur toutes les longueurs de 1 à 120 octets, erreurs et délais. ASan et UBSan propres. |
+| Kext tactile `NabuNT36523HID` | CI `touch-kext.yml` | **Compilé et lié** en arm64e et arm64 contre le SDK 26.2. `kmutil` résout tous ses symboles, IOHIDFamily compris, dans le kernelcache du runner (macOS 15.6). **Ce n'est pas le SDK ni le kernelcache macOS 27** : aucun Xcode 27 n'est installé sur les runners. |
+| Wi-Fi | `lab/nabu/wifi/` | Matériel réidentifié (WCN3990 intégré, pas QCA6390). Codec QRTR/QMI indépendant testé octet par octet. Rien n'est envoyé à un modem. |
+| Sources Apple de macOS 27 | `apple-oss-distributions` | **Non publiées** : le dernier manifeste est macOS 26.5 (IOHIDFamily-2238.120.5). Les interfaces macOS 27 ne se confirment donc qu'avec le SDK Xcode 27 ou les symboles du kernelcache 27.3 local (outil `lab/compat/check_kext_symbols.py`). |
+| Démarrage sur la tablette | — | **Aucun.** Aucun noyau nabu n'a encore été produit, rien n'a été déverrouillé ni flashé. |
+
+Les résultats de la compilation NABU suivante sont dans l'onglet Actions du dépôt, workflow « XNU 12377 compile (macOS runner) », avec le journal complet et un résumé des erreurs en artefact.
+
+### Compiler XNU nabu soi-même
+
+Sur un Mac avec Xcode 26 (SDK macOS 26) :
+
+```bash
+git clone https://github.com/blacktop/darwin-xnu-build dxb
+git -C dxb checkout --detach 663906528d1cd5ea8fde7de6f16de73db9511549
+git clone --branch xnu-12377.121.6 https://github.com/apple-oss-distributions/xnu.git dxb/xnu
+bash lab/compat/xnu-build/apply_series.sh dxb/xnu
+cd dxb && MACOS_VERSION=26.5 KERNEL_CONFIG=DEVELOPMENT ARCH_CONFIG=ARM64 MACHINE_CONFIG=NABU bash build.sh
+```
+
+La recette télécharge le KDK 26.5 depuis le manifeste `dortania/KdkSupportPkg` ; il n'est jamais versionné ici.
+
+### Références externes contrôlées
+
+- [`Lux12138/unixnu-nabu`](https://github.com/Lux12138/unixnu-nabu) existe. Il construit XNU **8796** (famille iOS 16), et non iPadOS 17.7.11 comme écrit plus bas. Il annonce SpringBoard en espace utilisateur le 28/10/2026 sur une Pad 5 modifiée à 12 Gio, sans affichage (`IOMobileFramebuffer` sans fournisseur), sans mention du tactile ni du Wi-Fi. Sa chaîne de démarrage (Mu UEFI, puis le chargeur DarwinBoot depuis `cust`, puis `kernel.macho`) est la référence pour l'artefact amorçable nabu.
+- `unixnu.com` n'était pas joignable depuis l'environnement de cette vérification. Les affirmations qui s'y réfèrent (profil 27.3 sur base 12377, prérequis arm64e) restent **non vérifiées**.
+
 ## Base XNU macOS 27.3
 
 L'IPSW macOS 27.3 embarque XNU `13432.60.57`. Le profil UniXNU public de cette version choisit délibérément les sources XNU `12377.121.6`, puis ajoute les appels Darwin 26, les KPI macOS et les adaptations macOS 27.3. La base 12377 n'est donc pas une erreur de version : c'est la base de compilation publiée tant que les sources Darwin 26 ne sont pas disponibles. Le port nabu doit étendre ce profil et son prélink, pas attendre un tag 13432. Références : [profil macOS 27.3](https://unixnu.com/porting/macos), [profil arm64e](https://unixnu.com/porting/arm64e).
@@ -58,15 +95,26 @@ Les 13 scénarios reproductibles du modèle comprennent aussi un balayage des 1 
 
 Mesures publiées : [`lab/results/nabu-macos27-pacemu-reference.json`](lab/results/nabu-macos27-pacemu-reference.json) et [`lab/results/macos27-kernelcache-pac-scan-summary.json`](lab/results/macos27-kernelcache-pac-scan-summary.json). Aucun fichier Apple n'a été inclus dans ce dépôt.
 
+### Revue des patches PAC, GIC et PSCI (14 novembre 2026)
+
+Relecture ligne à ligne contre les sources de `xnu-12377.121.6` et la description matérielle du SM8150.
+
+- **PAC (0001, 0002).** Les encodages décodés sont conformes à l'ARM ARM : `PACIA…XPACD` (`0xDAC1xxxx`, opcodes 0 à 17, Rn=31 imposé à partir de 8), `PACGA`, les huit formes `BRAA…BLRABZ`, `RETAA/RETAB`, `LDRAA/LDRAB` avec immédiat signé de 10 bits multiplié par 8. Les formes HINT (`PACIBSP`, `AUTIBSP`…) s'exécutent comme NOP sur ARMv8.2 et ne piègent pas. Limites constatées : chaque `RETAB` d'un kext Apple déclenche un piège, donc un coût par retour de fonction ; `ERETAA/ERETAB` ne sont pas émulés ; les instructions ARMv8.3+ qui ne sont pas du PAC (par exemple `LDAPUR`, `SB`, `FJCVTZS`) piègent aussi et ne sont pas émulées. Leur présence dans le kernelcache 27.3 se mesure avec `lab/compat/scan_isa_level.py`, à lancer en local sur le kernelcache extrait.
+- **GIC (0003).** Les offsets `GICR_IGROUPR0` `0x10080`, `ISENABLER0` `0x10100` et `IPRIORITYR0` `0x10400` sont corrects. L'INTID 19 est bien le timer virtuel sur Qualcomm (PPI 3), et XNU programme `CNTV_*` hors carte Apple. Le registre `CNTVCTSS_EL0` (ARMv8.6) n'est lu que si la carte définit `__ARM_ARCH_8_6__`, ce que `NABU.h` ne fait pas. Reste ouvert : aucun `IOInterruptController` ne distribue les SPI du GIC aux pilotes, donc aucune interruption de périphérique n'atteint un pilote.
+- **PSCI (0004).** `CPU_ON64` (`0xC4000003`), l'encodage de `ICC_SGI1R_EL1` et la recherche de l'entrée CPU par MPIDR dans le vecteur de reset sont corrects. Sur nabu, l'hyperviseur Qualcomm occupe EL2 : le trampoline EL2→EL1 ne sera pas emprunté, le chemin EL1 le sera.
+
 ## Pilote tactile et Wi-Fi nabu
 
 Le dépôt matériel public [UniXNU-nabu](https://github.com/zzweiqing/UniXNU-nabu) cible iPadOS 17.7 (21H16), avec un pilote tactile NT36523 lié à l'ancienne ABI IOHID. Il indique que le Wi-Fi n'est pas implémenté. Une nouvelle lecture ADB en lecture seule sur la tablette identifie le nœud Wi-Fi `qcom,cnss-qca6390@a0000000`, l'interface `wlan0` reliée à `qcom,icnss@18800000`, et le module Android `wlan`; Bluetooth apparaît séparément comme `vendor:bt_wcn3990`. Le rapport sans adresse MAC ni numéro de série est [`lab/results/nabu-macos27-radio-hardware.json`](lab/results/nabu-macos27-radio-hardware.json).
 
-La documentation Linux indique que QCA6390 est pris en charge par `ath11k` sur PCI, avec firmware et MSI spécifiques ([ath11k](https://wireless.docs.kernel.org/en/latest/en/users/drivers/ath11k.html), [pilote PCI QCA6390](https://github.com/torvalds/linux/blob/master/drivers/net/wireless/ath/ath11k/pci.c)). Cela sert de référence au matériel; aucun code Linux n'est utilisable directement comme pilote macOS. Il manque toujours une implémentation XNU/macOS 27.3 du bus, du chargement firmware, du transport MHI, de l'interface IO80211, ainsi que l'adaptation tactile à l'ABI 27.3.
+**Correction du 14 novembre 2026 : le Wi-Fi n'est pas un QCA6390 en PCIe.** La mesure ADB ci-dessus rattache `wlan0` à `qcom,icnss@18800000`, le pilote du Wi-Fi intégré au SoC, et l'arbre matériel nabu public active `wifi@18800000` (`qcom,wcn3990-wifi`) sans aucun contrôleur PCIe. Le nœud `cnss-qca6390@a0000000` est générique à l'arbre Android du SM8150. Le Wi-Fi est donc le WLAN intégré de la famille WCN3990, avec la radio WCN3991, piloté sous Linux par `ath10k_snoc` (licence ISC) via le modem et le service QMI WLFW, pas par `ath11k`, MHI et PCIe. Preuves, pile requise et premier code : [`lab/nabu/wifi/WIFI.md`](lab/nabu/wifi/WIFI.md).
 
 Le pilote tactile de référence est lié à `IOHIDFamily` du build 21H16 et à une table `IOHIDDevice` de 207 entrées. Sur le kernelcache macOS 27.3, l'étendue entre les symboles de la vtable et de la métaclasse est de 2 696 octets : 335 cellules de 8 octets après l'en-tête ABI de 16 octets. Le décodage du `LC_DYLD_CHAINED_FIXUPS` du kernelcache racine confirme 334 entrées de fonction authentifiées avec la clé IA et une dernière cellule nulle d'alignement. En rapprochant les pointeurs des symboles de tous les 370 membres Mach-O, les 334 fonctions ont un symbole exact. `handleStart` est au slot 272 et `handleReport` au slot 285, alors que le binding iPadOS 17.7 les place aux slots 168/181. Le binding ancien ne peut donc pas être réutilisé; il faut reconstruire le sous-classement macOS avec cette ABI et traiter ses pointeurs PAC.
 
 Le pilote Linux nabu confirme le format des rapports NT36523 : 66 octets SPI, dix contacts et coordonnées/pression encodées sur six octets par contact ([source](https://github.com/SeimoDev/linux-xiaomi-nabu/blob/4e6d08bb1b467c721e19cd693e4ec7388d982d73/drivers/input/touchscreen/nt36523/nt36xxx.c)). Le parseur portable [`lab/nabu/nt36523_touch.py`](lab/nabu/nt36523_touch.py) suit maintenant aussi la règle watchdog de cette référence : le marqueur `0xFD/0xFE` doit apparaître sur onze trames consécutives avant de demander une récupération. Six tests synthétiques passent. Cela valide seulement le décodage logiciel; aucun accès SPI macOS, événement IOHID, écran tactile ou démarrage sur la tablette n'a été testé. Le tactile natif reste non fonctionnel tant que le pilote SPI et le pont IOHID macOS 27.3 ne sont pas intégrés.
+
+**Pile tactile macOS (14 novembre 2026).** [`lab/nabu/touch/`](lab/nabu/touch/) contient une implémentation indépendante, en C portable : protocole SPI du NT36523 (sélection de page, lecture avec octet factice, informations firmware, rapports de 65 octets, surveillance), moteur SPI GENI en mode FIFO, et descripteur HID multitouch de dix contacts. Le kext [`NabuNT36523HID`](lab/nabu/touch/kext/NabuNT36523HID.cpp) se branche sur IOHIDFamily par héritage C++ normal de `IOHIDDevice` : c'est le compilateur qui place les entrées de vtable pour le SDK utilisé, sans numéro de slot écrit à la main. Faits matériels utilisés : moteur QUPv3 wrapper 2 SE1 à `0x00C84000` (GIC SPI 583, GPIO 23 à 26), SPI mode 0 à 9,6 MHz, interruption tactile sur la GPIO 39 du TLMM. Manque encore, dans l'ordre : le téléversement du firmware du contrôleur à la mise sous tension (blob Xiaomi, à extraire de la tablette), l'horloge GCC du moteur série et le multiplexage des broches, l'alimentation, et un contrôleur d'interruptions GPIO (TLMM/PDC). En attendant ce dernier, le kext interroge le contrôleur par minuterie. Rien n'a tourné sur la tablette.
+
 
 L'outil [`lab/compat/inspect_iohid_vtable.py`](lab/compat/inspect_iohid_vtable.py) décode les chaînes de pointeurs du kernelcache sans le modifier. Son test synthétique couvre les pointeurs format 8 authentifiés. Le résultat [`lab/results/macos27-iohid-vtable-report.json`](lab/results/macos27-iohid-vtable-report.json) ne contient que des adresses, des noms de symboles et des métadonnées de fixup; aucun code Apple n'est copié.
 
@@ -78,10 +126,12 @@ UniXNU précise par ailleurs que les profils macOS 27 sont arm64e et nécessiten
 
 ## Travail restant vers le démarrage natif
 
-1. Compiler XNU 12377 avec les quatre patchs et corriger les erreurs de compilation ou de liens; le code PSCI/GIC n'a pas été exécuté.
-2. Qualifier le démarrage SMP et l'émulation PAC, puis adapter le tactile à l'ABI IOHID macOS 27 et écrire un pilote XNU pour QCA6390.
-3. Faire valider l'image de démarrage et le retour arrière avant tout déverrouillage ou flash. La tablette mesurée a encore un bootloader verrouillé et aucun binaire de démarrage n'a été produit.
+1. Obtenir une compilation NABU complète (la CI la relance à chaque changement de série) et scanner le noyau produit avec `scan_isa_level.py`.
+2. Construire l'artefact amorçable : chaîne Mu UEFI et DarwinBoot (référence `Lux12138/unixnu-nabu`), arbre ADT nabu, kernelcache combinant ce noyau et les kexts du 27.3. Mesurer d'abord, en local sur le kernelcache 27.3, les instructions hors ARMv8.2 avec `scan_isa_level.py` et les symboles du kext tactile avec `check_kext_symbols.py`.
+3. Ajouter un `IOInterruptController` pour les SPI du GIC, puis un pilote TLMM/PDC pour les GPIO.
+4. Affichage : aucun pilote d'écran nabu n'existe pour XNU (le port iOS 16 de référence est bloqué au même endroit, `IOMobileFramebuffer`).
+5. Tactile : téléversement du firmware NT36523, horloges, broches et alimentation (voir plus haut).
+6. Wi-Fi : démarrage du modem, SMEM/GLINK/QRTR, poignée de main WLFW, moteurs de copie, puis interface réseau macOS (voir `lab/nabu/wifi/WIFI.md`).
+7. Valider l'image et un chemin de retour (sauvegarde `outputs/pad5-backup-20261113`, image Android d'origine) **avant** tout déverrouillage ou flash. Le déverrouillage Xiaomi passe par le compte de l'utilisateur et l'outil Mi Unlock, avec le délai imposé par Xiaomi.
 
 L'objectif reste macOS natif. Les essais Sonoma en QEMU sont de l'historique et ne constituent pas une installation macOS 27.3.
-
-\n

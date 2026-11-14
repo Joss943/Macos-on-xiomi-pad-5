@@ -92,7 +92,9 @@ jobs:
         if: steps.build.outcome == 'success'
         run: |
           set -euo pipefail
-          kernel="$(find dxb/build/xnu.obj -maxdepth 1 -name "kernel.development.$(echo "$MACHINE_CONFIG" | tr A-Z a-z)" -type f | head -1)"
+          name="kernel.development.$(echo "$MACHINE_CONFIG" | tr A-Z a-z)"
+          kernel="$(find dxb/fakeroot dxb/build -name "$name" -type f -not -path '*.dSYM/*' 2>/dev/null | head -1)"
+          echo "kernel: $kernel"
           test -n "$kernel"
           {
             echo "### Kernel: $(basename "$kernel")"

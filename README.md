@@ -1,6 +1,6 @@
 # macOS 27.3 sur Xiaomi Pad 5 (nabu, Snapdragon 860 / SM8150)
 
-**Cible unique : démarrer macOS 27.3 (26C5035r) nativement sur la Pad 5.** UniXNU construit actuellement ce profil à partir de XNU 12377.121.6 et prélinke le kernelcache 27.3. Le SM8150 ne présente pas de PAC matériel. La série locale explore un kernel ARM64 avec émulation PAC; elle s'applique à XNU 12377, mais n'est pas encore compilée ou démarrée. Aucun flash n'a été effectué. Voir [NATIF-MACOS-27.md](NATIF-MACOS-27.md) pour les mesures et les blocages.
+**Cible unique : démarrer macOS 27.3 (26C5035r) nativement sur la Pad 5.** UniXNU construit actuellement ce profil à partir de XNU 12377.121.6 et prélinke le kernelcache 27.3. Le SM8150 ne présente pas de PAC matériel. La série locale explore un kernel ARM64 avec émulation PAC ; elle s'applique à XNU 12377 et sa compilation réelle tourne en CI sur macOS (le témoin non patché compile ; la série NABU a fait apparaître des erreurs corrigées depuis). Rien n'a démarré. Aucun flash n'a été effectué. Voir [NATIF-MACOS-27.md](NATIF-MACOS-27.md) pour les mesures et les blocages.
 
 Le bootloader est toujours verrouillé (`ro.boot.flash.locked=1`). Aucune partition n'a été modifiée. Les essais Sonoma via QEMU décrits dans [NATIF-SONOMA.md](NATIF-SONOMA.md) sont historiques et ne constituent pas un port natif.
 
@@ -34,7 +34,7 @@ Le bootloader est toujours verrouillé (`ro.boot.flash.locked=1`). Aucune partit
 | `lab/probe_nabu_macos27.ps1` | PC Windows avec ADB | Collecte les indicateurs PAC Linux, MIDR, propriétés SoC et verrouillage du bootloader en lecture seule. |
 | `lab/nabu/build_arm64e_probe.py`, `lab/nabu/run_arm64e_probe.py` | PC avec ADB | Génère et exécute sur chaque cœur les tests EL0 des instructions PAC et des registres ID_AA64ISAR. |
 | `lab/results/nabu-macos27-pac.json` | Résultat matériel | Valeurs PAC lues et échecs PACIA observés sur les huit cœurs; numéro de série omis. |
-| `lab/results/nabu-macos27-radio-hardware.json` | Matériel radio nabu | Nœuds QCA6390/WLAN et WCN3990/BT observés par ADB en lecture seule; aucun identifiant privé. |
+| `lab/results/nabu-macos27-radio-hardware.json` | Matériel radio nabu | Nœuds radio observés par ADB en lecture seule ; `wlan0` est rattaché à `icnss@18800000`, le WLAN intégré WCN3990 (le nœud QCA6390 est générique et inactif, voir `lab/nabu/wifi/WIFI.md`). |
 | `lab/results/macos27-kernelcache-pac-scan-summary.json` | Résultat du kernelcache 27.3 | Hash vérifié, comptage PAC, expansions et segments non couverts; aucun binaire Apple inclus. |
 | `lab/compat/inspect_iohid_vtable.py` | Analyse IOHID 27.3 | Mesure la vtable `IOHIDDevice`, décode ses fixups du kernelcache racine et associe les pointeurs aux symboles exacts sans modifier l'IPSW. |
 | `lab/results/macos27-iohid-vtable-report.json` | Résultat du tactile 27.3 | 334 slots fonctionnels authentifiés IA, une cellule nulle de fin, et 334 noms exacts retrouvés dans les 370 membres du kernelcache. `handleStart` est au slot 272 et `handleReport` au slot 285 (référence iPadOS 17.7 : slots 168/181). |
@@ -53,6 +53,13 @@ Le bootloader est toujours verrouillé (`ro.boot.flash.locked=1`). Aucune partit
 | `lab/compat/patches/unixnu/nabu-macos27-arm64-profile.patch` | UniXNU resolver | Permet à l'override macOS 27.3 du seul appareil nabu de sélectionner ARM64 sans changer le profil Mac général. |
 | `lab/nabu/macos-27.3/arm64-override.toml` | Fragment profil nabu | Sélectionne ARM64 dans l'override de macOS 27.3, nécessaire au Snapdragon 860 sans PAC. |
 | `lab/nabu/nt36523_touch.py` | PC | Décode les rapports multitouch SPI du contrôleur Novatek NT36523; ce n'est pas encore son pilote macOS. |
+| `lab/nabu/touch/` | Kext macOS / tests hôte | Pile tactile indépendante : protocole NT36523, moteur SPI GENI, HID multitouch, kext `NabuNT36523HID`. Compilé et lié contre le SDK 26.2 en CI ; non testé sur la tablette. |
+| `lab/nabu/wifi/` | Étude et code | Réidentification du Wi-Fi (WCN3990 intégré), codec QRTR/QMI indépendant et premier message WLFW, testés octet par octet. |
+| `lab/compat/xnu-build/` | CI / Mac | Application épinglée de la série XNU et résumé des journaux de compilation. |
+| `lab/compat/scan_isa_level.py` | PC | Compte les instructions qu'un cœur Kryo 485 ne peut pas exécuter (PAC non-HINT, ARMv8.3+, registres système Apple). |
+| `lab/compat/check_kext_symbols.py` | PC | Vérifie que chaque symbole importé par un kext existe dans un kernelcache fileset (à lancer sur le 27.3 local). |
+| `.github/workflows/xnu-build.yml` | CI macOS | Compile XNU 12377 avec et sans la série nabu, avec un témoin VMAPPLE. |
+| `.github/workflows/touch-kext.yml` | CI | Tests hôte du tactile, compilation du kext et résolution de ses symboles. |
 
 Captures des tests (OpenCore, Catalina Recovery et Utilities, Sonoma Recovery) : dossier `xiaomi-pad5-macos/` du dépôt `fedora-config`, branche `ccr-475fd790-4b2n9n`.
 
