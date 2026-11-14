@@ -1,0 +1,144 @@
+From: nabu port
+Subject: [PATCH 0007] macOS 27 KPIs used by APFS and Image4 (26C5035r)
+
+Three kernel functions that the macOS 27.3 APFS and Image4 kexts import and
+that XNU 12377 lacks, written from their behaviour in the 26C5035r kernel
+(kernelcache.mac17j, com.apple.kernel UUID 1CF8F1FA-D974-3267-B5C3-F2572211A037):
+  vfs_context_ignores_content_protection   vfs_context_proc + P_VFS_IOPOLICY bit 0x0020
+  vfs_context_is_strict_content_protection vfs_context_proc + p_vfs_iopolicy bit 0x8000
+  image4_v2_interface_register             write-once SECURITY_READ_ONLY_LATE slot
+The new 0x8000 bit is defined but set nowhere in these sources.
+---
+diff --git a/bsd/sys/mount.h b/bsd/sys/mount.h
+index 86cef28..ae27c26 100644
+--- a/bsd/sys/mount.h
++++ b/bsd/sys/mount.h
+@@ -1355,6 +1355,8 @@ int     vfs_context_dataless_materialization_is_prevented(vfs_context_t);
+ int     vfs_context_orig_dataless_materialization_is_prevented(vfs_context_t);
+ boolean_t vfs_context_is_dataless_manipulator(vfs_context_t);
+ boolean_t vfs_context_can_resolve_triggers(vfs_context_t);
++boolean_t vfs_context_ignores_content_protection(vfs_context_t);
++boolean_t vfs_context_is_strict_content_protection(vfs_context_t);
+ boolean_t vfs_context_can_break_leases(vfs_context_t);
+ boolean_t vfs_context_skip_mtime_update(vfs_context_t ctx);
+ boolean_t vfs_context_allow_entitled_reserve_access(vfs_context_t ctx);
+diff --git a/bsd/sys/proc_internal.h b/bsd/sys/proc_internal.h
+index 22a54a7..cf0c4a3 100644
+--- a/bsd/sys/proc_internal.h
++++ b/bsd/sys/proc_internal.h
+@@ -603,6 +603,9 @@ struct proc {
+ #define P_VFS_IOPOLICY_SUPPORT_LONG_PATHS               0x1000
+ #define P_VFS_IOPOLICY_ENTITLED_RESERVE_ACCESS          0x2000
+ #define P_VFS_IOPOLICY_MATERIALIZE_DATALESS_FILES_ORIG  0x4000 /* preserves original at-launch policy */
++/* Bit read by macOS 27's vfs_context_is_strict_content_protection (26C5035r);
++ * nothing in these sources sets it, and it is in neither mask below. */
++#define P_VFS_IOPOLICY_STRICT_CONTENT_PROTECTION        0x8000
+ 
+ #define P_VFS_IOPOLICY_INHERITED_MASK                   \
+ 	(P_VFS_IOPOLICY_FORCE_HFS_CASE_SENSITIVITY | \
+diff --git a/bsd/vfs/kpi_vfs.c b/bsd/vfs/kpi_vfs.c
+index b4a5832..dcda668 100644
+--- a/bsd/vfs/kpi_vfs.c
++++ b/bsd/vfs/kpi_vfs.c
+@@ -1350,6 +1350,35 @@ vfs_context_can_resolve_triggers(vfs_context_t ctx)
+ 	return false;
+ }
+ 
++/*
++ * macOS 27 KPIs used by APFS. Same shape as vfs_context_can_resolve_triggers
++ * in the 26C5035r kernel: the context's process (vfs_context_proc), then one
++ * p_vfs_iopolicy bit; false when no process can be found.
++ */
++boolean_t
++vfs_context_ignores_content_protection(vfs_context_t ctx)
++{
++	proc_t proc = vfs_context_proc(ctx);
++
++	if (proc) {
++		return (proc->p_vfs_iopolicy &
++		       P_VFS_IOPOLICY_IGNORE_CONTENT_PROTECTION) != 0;
++	}
++	return false;
++}
++
++boolean_t
++vfs_context_is_strict_content_protection(vfs_context_t ctx)
++{
++	proc_t proc = vfs_context_proc(ctx);
++
++	if (proc) {
++		return (proc->p_vfs_iopolicy &
++		       P_VFS_IOPOLICY_STRICT_CONTENT_PROTECTION) != 0;
++	}
++	return false;
++}
++
+ boolean_t
+ vfs_context_can_break_leases(vfs_context_t ctx)
+ {
+diff --git a/config/Libkern.exports b/config/Libkern.exports
+index 366d2e4..f822678 100644
+--- a/config/Libkern.exports
++++ b/config/Libkern.exports
+@@ -712,6 +712,7 @@ _gOSKextUnresolved
+ _img4_interface_register
+ _image4_dlxk_link
+ _image4_dlxk_get
++_image4_v2_interface_register
+ _inet_ntop
+ _inflate
+ _inflateEnd
+diff --git a/config/Private.exports b/config/Private.exports
+index 9c32b79..1034ce3 100644
+--- a/config/Private.exports
++++ b/config/Private.exports
+@@ -1120,6 +1120,8 @@ _vfs_context_create_with_proc
+ _vfs_context_task
+ _vfs_context_thread
+ _vfs_context_can_resolve_triggers
++_vfs_context_ignores_content_protection
++_vfs_context_is_strict_content_protection
+ _vfs_context_dataless_materialization_is_prevented
+ _vfs_context_orig_dataless_materialization_is_prevented
+ _vfs_context_get_special_port
+diff --git a/libkern/conf/files b/libkern/conf/files
+index cabbeef..af24f72 100644
+--- a/libkern/conf/files
++++ b/libkern/conf/files
+@@ -109,6 +109,7 @@ libkern/apple_encrypted_archive/apple_encrypted_archive.c	standard
+ 
+ libkern/img4/interface.c 		standard
+ libkern/image4/dlxk.c 		standard
++libkern/image4/image4_v2.c 		standard
+ 
+ libkern/amfi/amfi.c 		standard
+ 
+diff --git a/libkern/image4/image4_v2.c b/libkern/image4/image4_v2.c
+new file mode 100644
+index 0000000..1c2a94b
+--- /dev/null
++++ b/libkern/image4/image4_v2.c
+@@ -0,0 +1,23 @@
++#include <libkern/libkern.h>
++#include <libkern/section_keywords.h>
++
++/*
++ * macOS 27 libImage4 v2 registration, as in the 26C5035r kernel: one
++ * read-only-late slot written once by the Image4 kext, a second
++ * registration panics. The interface layout is private to libImage4; the
++ * kernel only stores the pointer.
++ */
++void image4_v2_interface_register(const void *interface);
++
++#pragma mark Module Globals
++SECURITY_READ_ONLY_LATE(const void *) _image4_v2 = NULL;
++
++#pragma mark KPI
++void
++image4_v2_interface_register(const void *interface)
++{
++	if (_image4_v2) {
++		panic("libImage4_V2 interface already set @%s:%d", __FILE_NAME__, __LINE__);
++	}
++	_image4_v2 = interface;
++}
