@@ -104,15 +104,20 @@ jobs:
             echo '```'
             echo "### Split-segment load command"
             echo '```'
-            otool -l "$kernel" | grep -A3 -E 'LC_SEGMENT_SPLIT_INFO|LC_DYLD_INFO' || echo "(none)"
+            otool -l "$kernel" | grep -A3 -E 'LC_SEGMENT_SPLIT_INFO|LC_DYLD_CHAINED_FIXUPS|LC_DYLD_INFO' || echo "(none)"
+            otool -l "$kernel" | grep -A19 LC_DYSYMTAB | grep -E 'nlocrel|nextrel' || true
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
           otool -l "$kernel" > "loadcmds-${{ matrix.name }}.txt"
           if [ "$MACHINE_CONFIG" = NABU ]; then
-            echo "$links" | grep -q -- '-add_split_seg_info' \
-              || { echo "::error::final NABU link has no -add_split_seg_info (or link line not logged)"; exit 1; }
-            grep -q LC_SEGMENT_SPLIT_INFO "loadcmds-${{ matrix.name }}.txt" \
-              || { echo "::error::kernel.development.nabu has no LC_SEGMENT_SPLIT_INFO"; exit 1; }
+            for flag in -add_split_seg_info -kernel; do
+              echo "$links" | grep -qE -- "-Wl,$flag( |$)" \
+                || { echo "::error::final NABU link has no -Wl,$flag (or link line not logged)"; exit 1; }
+            done
+            for lc in LC_SEGMENT_SPLIT_INFO LC_DYLD_CHAINED_FIXUPS; do
+              grep -q "$lc" "loadcmds-${{ matrix.name }}.txt" \
+                || { echo "::error::kernel.development.nabu has no $lc"; exit 1; }
+            done
           fi
 
       - name: Replay failed compiles one at a time
