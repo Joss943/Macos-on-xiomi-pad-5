@@ -112,13 +112,27 @@ jobs:
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
           python3 lab/compat/scan_isa_level.py "$kernel" --objdump "$(xcrun --find llvm-objdump)" \
-            --json "isa-${{ matrix.name }}.json" > /dev/null || true
+            --json "isa-${{ matrix.name }}.json" --samples 40 > /dev/null || true
           {
             echo "### ISA scan against Kryo 485"
             echo '```json'
             python3 -c "import json,sys; d=json.load(open(sys.argv[1])); d.pop('samples'); print(json.dumps(d, indent=2))" "isa-${{ matrix.name }}.json"
             echo '```'
+            echo "### Instructions Kryo 485 cannot run (with symbols)"
+            echo '```'
+            python3 - "isa-${{ matrix.name }}.json" "$kernel" <<'PY' || true
+          import json, subprocess, sys
+          d = json.load(open(sys.argv[1]))
+          for feature, items in d["samples"].items():
+              addrs = [i.split(":")[0] for i in items]
+              syms = subprocess.run(["xcrun", "atos", "-o", sys.argv[2], "-arch", "arm64", *addrs],
+                                    capture_output=True, text=True).stdout.splitlines()
+              for item, sym in zip(items, syms + [""] * len(items)):
+                  print(f"{feature:40} {item:60} {sym}")
+          PY
+            echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
+          mkdir -p kernel-out && cp "$kernel" "kernel-out/" && shasum -a 256 kernel-out/* > kernel-out/SHA256SUMS
 
       - name: Upload logs and reports
         if: always()
@@ -132,3 +146,4 @@ jobs:
             summary-${{ matrix.name }}.json
             isa-${{ matrix.name }}.json
             serial-${{ matrix.name }}.log
+            kernel-out/
