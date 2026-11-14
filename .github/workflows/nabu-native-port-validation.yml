@@ -21,6 +21,12 @@ jobs:
           python3 -m unittest discover -s lab/compat -p 'test_*.py' -v
           python3 -m unittest discover -s lab/compat/xnu-build -p 'test_*.py' -v
 
+      - name: QRTR / QMI / WLFW wire-format tests (ASan, UBSan)
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+            lab/nabu/wifi/test_qmi_qrtr.c lab/nabu/wifi/qmi_qrtr.c -o "$RUNNER_TEMP/qmi-tests"
+          "$RUNNER_TEMP/qmi-tests"
+
       - name: Compile and run no-PAC emulator fixtures
         run: |
           cc -std=c11 -Wall -Wextra -Werror \

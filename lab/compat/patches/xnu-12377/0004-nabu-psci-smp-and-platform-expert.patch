@@ -1,9 +1,9 @@
 diff --git a/iokit/Kernel/arm/NabuCPU.cpp b/iokit/Kernel/arm/NabuCPU.cpp
 new file mode 100644
-index 00000000..4ffe21fe
+index 00000000..76ed7b21
 --- /dev/null
 +++ b/iokit/Kernel/arm/NabuCPU.cpp
-@@ -0,0 +1,251 @@
+@@ -0,0 +1,254 @@
 +/*
 + * PSCI CPU startup and GICv3 SGI transport for Xiaomi Pad 5 (nabu).
 + * CPU power-off, suspend and platform idle policy are not implemented yet.
@@ -20,13 +20,16 @@ index 00000000..4ffe21fe
 +#include <mach/mach_time.h>
 +#include <pexpert/pexpert.h>
 +
++/* Barrier domains; the osfmk names are not exported to IOKit sources. */
++enum : uint32_t { kNabuISB_SY = 0xF, kNabuDSB_SY = 0xF, kNabuDSB_ISHST = 0xA };
++
 +extern "C" void nabu_secondary_entry(void);
 +extern "C" boolean_t nabu_cpu_signal_is_enabled(unsigned int cpu);
 +
 +class NabuCPU : public IOCPU {
 +	OSDeclareDefaultStructors(NabuCPU);
 +	const OSSymbol *cpuName = NULL;
-+	uint32_t initialized = 0;
++	uint32_t nabuStarted = 0;
 +
 +public:
 +	static void startAll(void *arg, wait_result_t result);
@@ -153,7 +156,7 @@ index 00000000..4ffe21fe
 +			panic("NABU CPU: processor_start cpu=%u failed: %d", cpu_id, kr);
 +		}
 +		nanoseconds_to_deadline(5 * NSEC_PER_SEC, &deadline);
-+		while (__atomic_load_n(&cpu->initialized, __ATOMIC_ACQUIRE) == 0 ||
++		while (__atomic_load_n(&cpu->nabuStarted, __ATOMIC_ACQUIRE) == 0 ||
 +		    !nabu_cpu_signal_is_enabled(cpu_id)) {
 +			if (mach_absolute_time() > deadline) {
 +				panic("NABU CPU: cpu=%u MPIDR=0x%x failed PSCI/reset/GIC/SGI startup",
@@ -189,7 +192,7 @@ index 00000000..4ffe21fe
 +	ml_broadcast_cpu_event(CPU_BOOTED, getCPUNumber());
 +	signalCPU(this);
 +	setCPUState(kIOCPUStateRunning);
-+	__atomic_store_n(&initialized, 1, __ATOMIC_RELEASE);
++	__atomic_store_n(&nabuStarted, 1, __ATOMIC_RELEASE);
 +}
 +
 +void
@@ -212,9 +215,9 @@ index 00000000..4ffe21fe
 +	    (((mpidr >> 16) & 0xff) << 32) |
 +	    (((mpidr >> 8) & 0xff) << 16) |
 +	    ((uint64_t)NABU_IPI_SGI << 24) | (1ULL << aff0);
-+	__builtin_arm_dsb(DSB_ISHST);
++	__builtin_arm_dsb(kNabuDSB_ISHST);
 +	__builtin_arm_wsr64("ICC_SGI1R_EL1", sgi);
-+	__builtin_arm_isb(ISB_SY);
++	__builtin_arm_isb(kNabuISB_SY);
 +}
 +
 +kern_return_t
@@ -223,13 +226,13 @@ index 00000000..4ffe21fe
 +	const ml_topology_info_t *topology = ml_get_topology_info();
 +	const ml_topology_cpu_t *cpu = &topology->cpus[getCPUNumber()];
 +	if (start_paddr != 0 || arg_paddr != 0 || cpu == topology->boot_cpu ||
-+	    __atomic_load_n(&initialized, __ATOMIC_ACQUIRE) != 0) {
++	    __atomic_load_n(&nabuStarted, __ATOMIC_ACQUIRE) != 0) {
 +		panic("NABU CPU: unsupported restart of cpu=%u", getCPUNumber());
 +	}
 +	vm_offset_t entry = ml_static_vtop((vm_offset_t)&nabu_secondary_entry);
 +	IOLog("NABU CPU: PSCI CPU_ON cpu=%u MPIDR=0x%x entry=0x%llx\n",
 +	    getCPUNumber(), cpu->phys_id, (uint64_t)entry);
-+	__builtin_arm_dsb(DSB_SY);
++	__builtin_arm_dsb(kNabuDSB_SY);
 +	int32_t rc = nabu_psci_cpu_on(cpu->phys_id, entry, getCPUNumber());
 +	if (rc != 0) {
 +		panic("NABU CPU: PSCI CPU_ON cpu=%u returned %d", getCPUNumber(), rc);
@@ -257,7 +260,7 @@ index 00000000..4ffe21fe
 +#endif /* NABU */
 diff --git a/iokit/Kernel/arm/NabuPlatformExpert.cpp b/iokit/Kernel/arm/NabuPlatformExpert.cpp
 new file mode 100644
-index 00000000..1097e507
+index 00000000..1251c060
 --- /dev/null
 +++ b/iokit/Kernel/arm/NabuPlatformExpert.cpp
 @@ -0,0 +1,82 @@
@@ -278,7 +281,7 @@ index 00000000..1097e507
 +
 +public:
 +	bool start(IOService *provider) APPLE_KEXT_OVERRIDE;
-+	void processTopLevel(IORegistryEntry *root) APPLE_KEXT_OVERRIDE;
++	void processTopLevel(IORegistryEntry *rootEntry) APPLE_KEXT_OVERRIDE;
 +	const char *deleteList(void) APPLE_KEXT_OVERRIDE;
 +	const char *excludeList(void) APPLE_KEXT_OVERRIDE;
 +	bool getTargetName(char *name, int maxLength) APPLE_KEXT_OVERRIDE;
@@ -312,15 +315,15 @@ index 00000000..1097e507
 +}
 +
 +void
-+NabuPlatformExpert::processTopLevel(IORegistryEntry *root)
++NabuPlatformExpert::processTopLevel(IORegistryEntry *rootEntry)
 +{
 +	/* XNU assigns logical-cpu-id properties when it creates the CPU nubs. */
-+	IORegistryEntry *cpus = root->childFromPath("cpus", gIODTPlane);
++	IORegistryEntry *cpus = rootEntry->childFromPath("cpus", gIODTPlane);
 +	if (cpus != NULL) {
 +		createNubs(this, IODTFindMatchingEntries(cpus, kIODTExclusive, NULL));
 +		cpus->release();
 +	}
-+	createNubs(this, IODTFindMatchingEntries(root, kIODTExclusive, excludeList()));
++	createNubs(this, IODTFindMatchingEntries(rootEntry, kIODTExclusive, excludeList()));
 +}
 +
 +bool

@@ -1,3 +1,22 @@
+diff --git a/config/MASTER.arm64.MacOSX b/config/MASTER.arm64.MacOSX
+index 69219cc4..b13f4dc6 100644
+--- a/config/MASTER.arm64.MacOSX
++++ b/config/MASTER.arm64.MacOSX
+@@ -58,11 +58,11 @@
+ #  LIBKERN_RELEASE =[ LIBKERN_BASE zlib ]
+ #  LIBKERN_DEV =    [ LIBKERN_BASE zlib iotracking ]
+ #  LIBKERN_DEBUG =  [ LIBKERN_BASE zlib iotracking ]
+-#if SOC_IS_VIRTUALIZED
++#if SOC_IS_VIRTUALIZED || SOC_CONFIG_nabu
+ #  CPU_COUNTERS_BASE = [ ]
+-#else /*!SOC_IS_VIRTUALIZED*/
++#else /*!(SOC_IS_VIRTUALIZED || SOC_CONFIG_nabu)*/
+ #  CPU_COUNTERS_BASE = [ config_cpu_counters config_pervasive_cpi config_pervasive_energy ]
+-#endif /*SOC_IS_VIRTUALIZED*/
++#endif /*SOC_IS_VIRTUALIZED || SOC_CONFIG_nabu*/
+ #  PERF_DBG_BASE =  [ config_dtrace mach_kdp config_serial_kdp kdp_interactive_debugging config_kdp_coredump_encryption CPU_COUNTERS_BASE kperf ]
+ #  PERF_DBG_RELEASE=[ PERF_DBG_BASE ist_kdebug ]
+ #  PERF_DBG_DEV =   [ PERF_DBG_BASE lock_stats zleaks alternate_debugger sched_hygiene_debug config_debug_syscall_rejection config_iotrace config_memory_microstackshot ]
 diff --git a/makedefs/MakeInc.def b/makedefs/MakeInc.def
 index e37762bc..4ccb76ee 100644
 --- a/makedefs/MakeInc.def
