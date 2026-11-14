@@ -45,7 +45,10 @@ def main():
     u64 = lambda v: struct.pack('<Q', v)
     cpu0 = node('cpu0', [('state', b'running\0'), ('reg', u32(0)), ('device_type', b'cpu\0'),
                          ('compatible', b'qcom,kryo485\0'), ('timebase-frequency', u32(QEMU_TIMEBASE)),
-                         ('clock-frequency', u32(1000000000))])
+                         ('clock-frequency', u32(1000000000)),
+                         # XNU's topology parser (osfmk/arm64/machine_routines.c) needs a cluster type;
+                         # the emulated core is an A76, a performance core on the tablet.
+                         ('cluster-type', u32(ord('P'))), ('cluster-id', u32(0))])
     tree = node('device-tree', [('model', b'nabu-qemu-fixture\0'), ('compatible', b'xiaomi,nabu\0')], [
         node('chosen', [('random-seed', os.urandom(256)),
                         ('darwinboot-memory-size', u64(args.owned_memory_size)),
