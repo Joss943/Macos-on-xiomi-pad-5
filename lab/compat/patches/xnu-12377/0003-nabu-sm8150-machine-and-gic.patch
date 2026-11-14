@@ -1,8 +1,19 @@
 diff --git a/config/MASTER.arm64.MacOSX b/config/MASTER.arm64.MacOSX
-index 69219cc4..b13f4dc6 100644
+index 69219cc4..8da90a2c 100644
 --- a/config/MASTER.arm64.MacOSX
 +++ b/config/MASTER.arm64.MacOSX
-@@ -58,11 +58,11 @@
+@@ -14,7 +14,9 @@
+ #  Standard Apple OS Configurations:
+ #  -------- ----- -- ---------------
+ #
+-#if MASTER_CONFIG_ENABLE_EXCLAVES
++#if SOC_CONFIG_nabu
++#  ARM_EXTRAS_BASE = [ config_pmap_ppl nos_arm_asm nos_arm_pmap ]
++#elif MASTER_CONFIG_ENABLE_EXCLAVES
+ #  ARM_EXTRAS_BASE = [ config_sptm config_sptm_iommu config_exclaves ]
+ #elif MASTER_CONFIG_ENABLE_SPTM
+ #  ARM_EXTRAS_BASE = [ config_sptm config_sptm_iommu ]
+@@ -58,11 +60,11 @@
  #  LIBKERN_RELEASE =[ LIBKERN_BASE zlib ]
  #  LIBKERN_DEV =    [ LIBKERN_BASE zlib iotracking ]
  #  LIBKERN_DEBUG =  [ LIBKERN_BASE zlib iotracking ]
