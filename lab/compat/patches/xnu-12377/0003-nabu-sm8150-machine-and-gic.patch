@@ -41,6 +41,140 @@ index 69219cc4..8da90a2c 100644
  #  PERF_DBG_BASE =  [ config_dtrace mach_kdp config_serial_kdp kdp_interactive_debugging config_kdp_coredump_encryption CPU_COUNTERS_BASE kperf ]
  #  PERF_DBG_RELEASE=[ PERF_DBG_BASE ist_kdebug ]
  #  PERF_DBG_DEV =   [ PERF_DBG_BASE lock_stats zleaks alternate_debugger sched_hygiene_debug config_debug_syscall_rejection config_iotrace config_memory_microstackshot ]
+diff --git a/config/Makefile b/config/Makefile
+index 6d48aa2e..f30ae0a5 100644
+--- a/config/Makefile
++++ b/config/Makefile
+@@ -50,6 +50,17 @@ EXPORTS_FILES := $(foreach symbolset,$(SYMBOL_COMPONENT_LIST),$(symbolset).expor
+ 	$(notdir $(wildcard $(SOURCE)/$(symbolset).$(EXPORT_SOURCE_ARCH_CONFIG_LC).$(PLATFORM).exports))) \
+ 	Unused.exports
+ EXPORTS_FILES += $(TIGHTBEAM_EXPORTS)
++
++# NABU links no Apple SPTM/IOMMU/PPL code, so the kext symbol sets are built from
++# copies of the export lists without the names in nabu_unavailable.exports.
++ifeq ($(CURRENT_MACHINE_CONFIG),NABU)
++EXPORT_DIR := $(OBJPATH)/nabu-exports
++$(EXPORT_DIR)/%.exports: $(SOURCE)/%.exports $(SOURCE)/nabu_unavailable.exports
++	$(_v)$(MKDIR) $(@D)
++	$(_v)grep -vxF -f $(SOURCE)/nabu_unavailable.exports $< > $@ || test $$? -eq 1
++else
++EXPORT_DIR := $(SOURCE)
++endif
+ Private_OTHER_EXPORTS += $(TIGHTBEAM_EXPORTS)
+ 
+ 
+@@ -70,7 +81,7 @@ Kasan_EXPORTS := $(SRCROOT)/config/Kasan_enabled.$(KASAN_ARCH_SUFFIX).exports
+ endif
+ 
+ define symbol_set_template
+-$(1)_EXPORTS := $$(addprefix $$(SOURCE)/,$$(filter $(1)%,$$(EXPORTS_FILES)))
++$(1)_EXPORTS := $$(addprefix $$(EXPORT_DIR)/,$$(filter $(1)%,$$(EXPORTS_FILES)))
+ ifneq "$$($(1)_OTHER_EXPORTS)" ""
+ $(1)_EXPORTS += $$($(1)_OTHER_EXPORTS)
+ endif
+@@ -123,20 +134,21 @@ build_symbol_set_plists: $(KEXT_PLIST_BUILD) $(OBJPATH)/symbolsets.plist
+ $(TARGET)/allsymbols: $(OBJPATH)/$(KERNEL_FILE_NAME)
+ 	$(_v)$(NM) -gj $< | sort -u > $@
+ 
+-check_all_exports: $(TARGET)/allsymbols $(KEXT_CREATE_SYMBOL_SET)
++check_all_exports: $(TARGET)/allsymbols $(KEXT_CREATE_SYMBOL_SET) \
++		$(foreach symbolset,$(SYMBOL_COMPONENT_LIST),$(EXPORT_DIR)/$(symbolset).exports $(EXPORT_DIR)/$(symbolset).$(EXPORT_SOURCE_ARCH_CONFIG_LC).exports)
+ 	$(_v)$(KEXT_CREATE_SYMBOL_SET)					\
+ 		$(ARCH_FLAGS_$(CURRENT_ARCH_CONFIG))			\
+ 		-import $(TARGET)/allsymbols				\
+ 		$(foreach symbolset,$(filter-out Private,$(SYMBOL_COMPONENT_LIST)),	\
+-			-export $(SOURCE)/$(symbolset).exports		\
+-			-export $(SOURCE)/$(symbolset).$(EXPORT_SOURCE_ARCH_CONFIG_LC).exports)	\
++			-export $(EXPORT_DIR)/$(symbolset).exports		\
++			-export $(EXPORT_DIR)/$(symbolset).$(EXPORT_SOURCE_ARCH_CONFIG_LC).exports)	\
+ 		-output /dev/null $(_vstdout)
+ 	$(_v)$(KEXT_CREATE_SYMBOL_SET)					\
+ 		$(ARCH_FLAGS_$(CURRENT_ARCH_CONFIG))			\
+ 		-import $(TARGET)/allsymbols				\
+ 		$(foreach symbolset,$(filter-out Unsupported,$(SYMBOL_COMPONENT_LIST)),	\
+-			-export $(SOURCE)/$(symbolset).exports		\
+-			-export $(SOURCE)/$(symbolset).$(EXPORT_SOURCE_ARCH_CONFIG_LC).exports)	\
++			-export $(EXPORT_DIR)/$(symbolset).exports		\
++			-export $(EXPORT_DIR)/$(symbolset).$(EXPORT_SOURCE_ARCH_CONFIG_LC).exports)	\
+ 		-output /dev/null $(_vstdout)
+ 
+ $(OBJPATH)/$(MD_SUPPORTED_KPI_FILENAME): $(EXPORTS_FILES)
+diff --git a/config/nabu_unavailable.exports b/config/nabu_unavailable.exports
+new file mode 100644
+index 00000000..6daf64c0
+--- /dev/null
++++ b/config/nabu_unavailable.exports
+@@ -0,0 +1,70 @@
++# Exports that NABU cannot provide: Apple SPTM, DART/SART/UAT IOMMUs, PPL-only
++# pmap entry points and IOUnifiedAddressTranslator, all in unpublished sources.
++# config/Makefile drops these lines from the export lists for NABU only.
++__ZN26IOUnifiedAddressTranslator10gMetaClassE
++__ZN26IOUnifiedAddressTranslator10superClassE
++__ZN26IOUnifiedAddressTranslator12commitUnmapsEv
++__ZN26IOUnifiedAddressTranslator14prepareFWUnmapEyy
++__ZN26IOUnifiedAddressTranslator17getPageTableEntryEy
++__ZN26IOUnifiedAddressTranslator18setClientContextIDEjb
++__ZN26IOUnifiedAddressTranslator19isPageFaultExpectedEyj
++__ZN26IOUnifiedAddressTranslator21removeClientContextIDEv
++__ZN26IOUnifiedAddressTranslator22registerTaskForServiceEP4taskP9IOService
++__ZN26IOUnifiedAddressTranslator23createMappingInApertureEjP18IOMemoryDescriptorjym
++__ZN26IOUnifiedAddressTranslator23getTotalPageTableMemoryEv
++__ZN26IOUnifiedAddressTranslator29getFirmwareAddressSpaceHandleEv
++__ZN26IOUnifiedAddressTranslator3mapEP11IOMemoryMapj
++__ZN26IOUnifiedAddressTranslator5doMapEP18IOMemoryDescriptoryyj
++__ZN26IOUnifiedAddressTranslator5unmapEP11IOMemoryMap
++__ZN26IOUnifiedAddressTranslator7doUnmapEP18IOMemoryDescriptoryy
++__ZN26IOUnifiedAddressTranslator7getModeEv
++__ZN26IOUnifiedAddressTranslator8taskDiedEv
++__ZTV26IOUnifiedAddressTranslator
++_nvme_ppl_get_desc
++_pmap_acquire_iommu_scratch_area
++_pmap_alloc_iommu_page
++_pmap_create_aligned_buffer
++_pmap_cs_configuration
++_pmap_destroy_aligned_buffer
++_pmap_free_iommu_page
++_pmap_has_iofilter_protected_write
++_pmap_iommu_alloc_contiguous_pages
++_pmap_iommu_init
++_pmap_iommu_ioctl
++_pmap_iommu_iovmalloc
++_pmap_iommu_iovmfree
++_pmap_iommu_map
++_pmap_iommu_unmap
++_pmap_ref_iommu_table
++_pmap_register_iommu_mapping
++_pmap_release_iommu_scratch_area
++_pmap_unregister_iommu_mapping
++_sart_get_desc
++_sptm_gen3dart_clamp_tlimits
++_sptm_gen3dart_clear_all_interrupts
++_sptm_gen3dart_clear_err
++_sptm_gen3dart_clear_exception
++_sptm_gen3dart_clear_perf_interrupts
++_sptm_gen3dart_disable_all_interrupts
++_sptm_gen3dart_disable_translation
++_sptm_gen3dart_enable_translation
++_sptm_gen3dart_init
++_sptm_gen3dart_map
++_sptm_gen3dart_map_table
++_sptm_gen3dart_powerdown
++_sptm_gen3dart_powerup
++_sptm_gen3dart_query_tlb
++_sptm_gen3dart_read_smmu_stt_index
++_sptm_gen3dart_set_smmu_window
++_sptm_gen3dart_test_translation
++_sptm_gen3dart_unmap
++_sptm_gen3dart_unmap_table
++_t6000dart_get_desc
++_t6000dart_vo_tte
++_t8020dart_get_desc
++_t8020dart_vo_tte
++_t8110dart_get_desc
++_t8110dart_max_translation_levels
++_t8110dart_vo_tt_index
++_t8110dart_vo_tte
++_uat_get_desc
 diff --git a/libkern/conf/files b/libkern/conf/files
 index c4684c20..cabbeef5 100644
 --- a/libkern/conf/files
