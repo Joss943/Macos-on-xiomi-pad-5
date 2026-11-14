@@ -12,6 +12,7 @@ on:
       - codex/native-sonoma-research
     paths:
       - '.github/workflows/uefi-build.yml'
+      - 'lab/compat/patches/darwinboot/**'
 
 jobs:
   uefi:
@@ -36,6 +37,12 @@ jobs:
           git -C unixnu checkout -q --detach "$UNIXNU_COMMIT"
           git clone -q https://github.com/UniXNU/DarwinBoot.git unixnu/drivers/DarwinBoot
           git -C unixnu/drivers/DarwinBoot checkout -q --detach "$DARWINBOOT_COMMIT"
+          for p in lab/compat/patches/darwinboot/*.patch; do
+            [ -e "$p" ] || continue
+            git -C unixnu/drivers/DarwinBoot apply --check "$GITHUB_WORKSPACE/$p"
+            git -C unixnu/drivers/DarwinBoot apply "$GITHUB_WORKSPACE/$p"
+            echo "applied $p"
+          done
           git clone -q --depth 1 -b "$MU_BRANCH" https://github.com/microsoft/mu_basecore.git unixnu/package/Mu_Basecore
           git -C unixnu/package/Mu_Basecore submodule update -q --init --depth 1 \
             MdePkg/Library/BaseFdtLib/libfdt MdePkg/Library/MipiSysTLib/mipisyst BaseTools/Source/C/BrotliCompress/brotli
