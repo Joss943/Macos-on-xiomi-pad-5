@@ -247,10 +247,10 @@ index 75938b56..aacab935 100644
  # Headers installed into System.framework/PrivateHeaders (userspace internal SDK only).
 diff --git a/pexpert/pexpert/arm64/NABU.h b/pexpert/pexpert/arm64/NABU.h
 new file mode 100644
-index 00000000..87534685
+index 00000000..fa855615
 --- /dev/null
 +++ b/pexpert/pexpert/arm64/NABU.h
-@@ -0,0 +1,59 @@
+@@ -0,0 +1,72 @@
 +/*
 + * Xiaomi Pad 5 (nabu / SM8150-AC) generic ARM64 board configuration.
 + * Qualcomm's Cortex-A76/A55 based Kryo cores expose 64-byte cache lines and
@@ -301,6 +301,19 @@ index 00000000..87534685
 +
 +#define ICC_CTLR_EOIMODE             0x2
 +#define ICC_SRE_SRE                  0x1
++
++/*
++ * apple_arm64_cpu.h names Apple's MPIDR core-type field. Kryo 485 has no such
++ * field: bits 16..18 are Aff2, which is 0 on SM8150, so arm64_core_type()
++ * would report E_CORE on every CPU. Nothing built for nabu may rely on it;
++ * these values only let the shared header compile.
++ */
++#define MPIDR_CORETYPE_SHIFT         (16)
++#define MPIDR_CORETYPE_WIDTH         (3)
++#define MPIDR_CORETYPE_MASK          ((1ULL << MPIDR_CORETYPE_WIDTH) - 1)
++#define MPIDR_CORETYPE_ACC_E         (0ULL)
++#define MPIDR_CORETYPE_ACC_P         (1ULL)
++#define MPIDR_CORETYPE_ACC_M         (4ULL)
 +
 +/* SM8150 reports MPIDR Aff1 values 0..7 for the eight Kryo 485 CPUs. */
 +#define NABU_MAX_PHYSICAL_CLUSTER_ID 7

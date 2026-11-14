@@ -520,7 +520,7 @@ index 2032c367..37b8b0b0 100644
  	.globl EXT(resume_idle_cpu)
  LEXT(resume_idle_cpu)
 diff --git a/pexpert/pexpert/arm64/NABU.h b/pexpert/pexpert/arm64/NABU.h
-index 87534685..a02ff906 100644
+index fa855615..067d40da 100644
 --- a/pexpert/pexpert/arm64/NABU.h
 +++ b/pexpert/pexpert/arm64/NABU.h
 @@ -9,6 +9,7 @@
