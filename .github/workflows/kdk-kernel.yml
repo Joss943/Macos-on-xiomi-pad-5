@@ -1,0 +1,82 @@
+name: KDK 26C5035r symbol-bearing kernel
+
+# Finds, in Apple's Kernel Debug Kit for macOS 27.3 (26C5035r), the kernel whose
+# LC_UUID equals the com.apple.kernel entry of the local Mac17,11 kernelcache,
+# and publishes only that kernel (and the UUID list) as an artifact. It is a
+# naming reference for XnuPrelink; nothing here is bootable or flashed.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/native-sonoma-research
+    paths:
+      - '.github/workflows/kdk-kernel.yml'
+
+jobs:
+  kdk:
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      KDK_URL: https://github.com/dortania/KdkSupportPkg/releases/download/26C5035r/Kernel_Debug_Kit_27.2_build_26C5035r.dmg
+      KDK_SHA256: 529ba51a476e1f22c34bda3b3eff357b70bf19a6869d4542c66201cbf2eaa8ff
+      # LC_UUID of com.apple.kernel in kernelcache.mac17j (sha256 d1003b51...)
+      KC_KERNEL_UUID: 1CF8F1FA-D974-3267-B5C3-F2572211A037
+    steps:
+      - name: Download and verify the KDK
+        run: |
+          set -euo pipefail
+          curl -fL --retry 4 -o kdk.dmg "$KDK_URL"
+          echo "$KDK_SHA256  kdk.dmg" | shasum -a 256 -c -
+
+      - name: Expand the KDK package
+        run: |
+          set -euo pipefail
+          mnt="$(mktemp -d)"
+          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" kdk.dmg
+          pkg="$(find "$mnt" -maxdepth 2 -name '*.pkg' | head -1)"
+          echo "package: $pkg"
+          pkgutil --expand-full "$pkg" kdk
+          hdiutil detach "$mnt"
+          rm kdk.dmg
+
+      - name: List kernels and pick the one matching the kernelcache
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          : > out/kdk-kernels.txt
+          find kdk -path '*/System/Library/Kernels/*' -type f -name 'kernel*' -not -path '*.dSYM/*' | sort | while read -r k; do
+            for u in $(dwarfdump --uuid "$k" 2>/dev/null | awk '{print $2 "/" $3}'); do
+              echo "$u $(shasum -a 256 "$k" | cut -c1-64) ${k#kdk/}" >> out/kdk-kernels.txt
+            done
+          done
+          cat out/kdk-kernels.txt | tee -a "$GITHUB_STEP_SUMMARY"
+          match="$(grep -i "^$KC_KERNEL_UUID/" out/kdk-kernels.txt | head -1 || true)"
+          if [ -z "$match" ]; then
+            echo "::error::no KDK kernel has UUID $KC_KERNEL_UUID"
+            exit 1
+          fi
+          path="kdk/$(echo "$match" | awk '{print $3}')"
+          echo "match: $match" | tee -a "$GITHUB_STEP_SUMMARY"
+          cp "$path" out/
+          dsym="$(find kdk -type d -name "$(basename "$path").dSYM" | head -1)"
+          if [ -n "$dsym" ]; then
+            ditto -c -k --keepParent "$dsym" "out/$(basename "$path").dSYM.zip"
+          fi
+          {
+            echo '```'
+            file "$path"
+            otool -l "$path" | grep -A4 -E 'LC_SYMTAB' | head -8
+            nm "$path" | wc -l | sed 's/^/symbols: /'
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          (cd out && shasum -a 256 * > SHA256SUMS)
+
+      - name: Upload the matching kernel
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kdk-26C5035r-kernel
+          retention-days: 14
+          if-no-files-found: ignore
+          path: out/
