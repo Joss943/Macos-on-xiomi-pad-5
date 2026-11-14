@@ -47,7 +47,7 @@ Résultats :
 |---|---|
 | 1. Code modifié | **Fait.** Série 0001–0006 reproductible sur `ac9718fb` ; patch XnuPrelink appliqué sur `440589b` propre. |
 | 2. Noyau compilé | **Fait** (run 23, `faec1a9c…`) : split-seg vérifié ; relocations locales, pas de chained fixups. |
-| 3. Prélink émis | **Non.** Toutes les étapes structurelles passent ; bloqué par 7 455 références non résolues (couverture du matcher : 1 635 / 3 856 cibles nommées, 6 conflits). |
+| 3. Prélink émis | **Non.** Toutes les étapes structurelles passent. Après le patch [`plain-arm64-vtable-layouts`](lab/compat/patches/xnu-prelink/plain-arm64-vtable-layouts.patch) (vtables nabu reconnues grâce à la disposition PAC du témoin VMAPPLE) : 1 958 / 3 856 cibles nommées, **1 001 références non résolues** (contre 7 455), 467 cibles distinctes. |
 | 4. Image amorçable | **Non.** |
 | 5. Démarrage sur la tablette | **Aucun.** Bootloader observé verrouillé, rien flashé. |
 | 6. Tactile et Wi‑Fi sur matériel | **Non testés.** |
