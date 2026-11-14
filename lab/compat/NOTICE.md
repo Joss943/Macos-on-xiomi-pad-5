@@ -24,6 +24,12 @@ third-party implementation.
 instruction encodings listed in its decoder. It treats authentication as a
 no-op over plain pointers and does not implement PAC security.
 
+`patches/xnu-12377/0009-macos27-image4-v2-nonce-policy-without-monitor.patch` follows the
+behaviour and return values of the four `image4_v2` calls in
+[`UniXNU`](https://github.com/UniXNU/UniXNU) `profiles/os/macos-27.3-26C5035r/patches/xnu-12377/macos-darwin26-kpi.patch`
+(revision `d8210e0`), licensed BSD-2-Clause-Patent as reproduced below. The calls fail closed;
+nothing is accepted.
+
 Copyright (c) 2026, UniXNU contributors. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
