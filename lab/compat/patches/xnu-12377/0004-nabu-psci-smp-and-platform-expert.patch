@@ -470,10 +470,10 @@ index 07143d53..f9d4cb25 100644
  			topology_info.cluster_power_down = 1;
  		}
 diff --git a/osfmk/arm64/start.s b/osfmk/arm64/start.s
-index 12974cea..99f5a8e7 100644
+index 12974cea..18d0ddb8 100644
 --- a/osfmk/arm64/start.s
 +++ b/osfmk/arm64/start.s
-@@ -295,6 +295,48 @@ LEXT(LowExceptionVectorBase)
+@@ -295,6 +295,50 @@ LEXT(LowExceptionVectorBase)
  LEXT(bootstrap_instructions)
  
  #endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR) */
@@ -501,7 +501,9 @@ index 12974cea..99f5a8e7 100644
 +	msr		CNTHCTL_EL2, x1
 +	msr		CNTVOFF_EL2, xzr
 +	mrs		x1, ICC_SRE_EL2
-+	orr		x1, x1, #9
++	/* SRE | Enable; 0b1001 is not an AArch64 logical immediate. */
++	orr		x1, x1, #1
++	orr		x1, x1, #8
 +	msr		ICC_SRE_EL2, x1
 +	MOV64	x1, 0x30d00800
 +	msr		SCTLR_EL1, x1
@@ -523,7 +525,7 @@ index 12974cea..99f5a8e7 100644
  	.globl EXT(resume_idle_cpu)
  LEXT(resume_idle_cpu)
 diff --git a/pexpert/pexpert/arm64/NABU.h b/pexpert/pexpert/arm64/NABU.h
-index b82ebe65..193638ac 100644
+index 82d0f63b..a08ad0fb 100644
 --- a/pexpert/pexpert/arm64/NABU.h
 +++ b/pexpert/pexpert/arm64/NABU.h
 @@ -9,6 +9,7 @@
@@ -532,5 +534,5 @@ index b82ebe65..193638ac 100644
  #define NABU                         1
 +#define NABU_SMP_MAX_CPUS            8
  #define HAS_CLUSTER                  1
- #define __ARM_AMP__                  1
- #define HAS_GIC_V3                   1
+ /* CPU_OVRD (S3_4_C15_C2_0) and the IPI-clear register are Apple implementation registers. */
+ #define NO_CPU_OVRD                  1
